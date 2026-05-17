@@ -56,7 +56,7 @@ func RenderDetailContent(snap core.UsageSnapshot, now time.Time, w int, warnThre
 	}
 
 	// Build and render all sections as bordered cards.
-	sections := buildDetailSections(snap, widget, w, warnThresh, critThresh, timeWindow, hideCosts)
+	sections := buildDetailSections(snap, widget, w, warnThresh, critThresh, timeWindow, hideCosts, now)
 	for _, sec := range sections {
 		renderDetailCard(&sb, sec, w)
 	}

@@ -721,7 +721,7 @@ func (m Model) detailSectionStarts() []int {
 	if width < 30 {
 		width = 30
 	}
-	sections := buildDetailSections(snap, dashboardWidget(snap.ProviderID), width, m.warnThreshold, m.critThreshold, m.timeWindow, m.resolveHideCosts(snap))
+	sections := buildDetailSections(snap, dashboardWidget(snap.ProviderID), width, m.warnThreshold, m.critThreshold, m.timeWindow, m.resolveHideCosts(snap), m.viewNow())
 	if len(sections) == 0 {
 		return nil
 	}

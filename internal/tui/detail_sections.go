@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/janekbaraniewski/openusage/internal/core"
@@ -12,7 +13,7 @@ import (
 // Sections are filtered and ordered according to effectiveDetailSectionOrder().
 //
 // hideCosts suppresses the Spending and Forecast cards entirely.
-func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w int, warnThresh, critThresh float64, timeWindow core.TimeWindow, hideCosts bool) []detailSection {
+func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w int, warnThresh, critThresh float64, timeWindow core.TimeWindow, hideCosts bool, now time.Time) []detailSection {
 	innerW := w - 8 // card borders + margins + padding
 	if innerW < 30 {
 		innerW = 30
@@ -22,7 +23,7 @@ func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w
 	candidates := make(map[core.DetailStandardSection][]detailSection)
 
 	// 1. Usage Overview — gauges and key metrics (NO summary/detail text — that's in compact header).
-	if usageLines := buildDetailUsageSection(snap, widget, innerW, warnThresh, critThresh, hideCosts); len(usageLines) > 0 {
+	if usageLines := buildDetailUsageSection(snap, widget, innerW, warnThresh, critThresh, hideCosts, now); len(usageLines) > 0 {
 		candidates[core.DetailSectionUsage] = append(candidates[core.DetailSectionUsage],
 			detailSection{id: "Usage", title: "Usage", icon: "⚡", color: colorYellow, lines: usageLines})
 	}
@@ -181,11 +182,11 @@ func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w
 
 // buildDetailUsageSection builds the usage overview — gauges + compact metrics.
 // Does NOT include summary/detail text (that's in the compact header now).
-func buildDetailUsageSection(snap core.UsageSnapshot, widget core.DashboardWidget, innerW int, warnThresh, critThresh float64, hideCosts bool) []string {
+func buildDetailUsageSection(snap core.UsageSnapshot, widget core.DashboardWidget, innerW int, warnThresh, critThresh float64, hideCosts bool, now time.Time) []string {
 	var lines []string
 
 	// Usage gauge bars.
-	gaugeLines := buildDetailGaugeLines(snap, widget, innerW, warnThresh, critThresh)
+	gaugeLines := buildDetailGaugeLines(snap, widget, innerW, warnThresh, critThresh, now)
 	lines = append(lines, gaugeLines...)
 
 	// Compact metric summary rows (credits, messages, sessions, etc.).
@@ -201,7 +202,7 @@ func buildDetailUsageSection(snap core.UsageSnapshot, widget core.DashboardWidge
 }
 
 // buildDetailGaugeLines builds gauge bars for the detail view.
-func buildDetailGaugeLines(snap core.UsageSnapshot, widget core.DashboardWidget, innerW int, warnThresh, critThresh float64) []string {
+func buildDetailGaugeLines(snap core.UsageSnapshot, widget core.DashboardWidget, innerW int, warnThresh, critThresh float64, now time.Time) []string {
 	maxLabelW := 18
 	gaugeW := innerW - maxLabelW - 10
 	if gaugeW < 8 {
@@ -241,7 +242,30 @@ func buildDetailGaugeLines(snap core.UsageSnapshot, widget core.DashboardWidget,
 		if len(label) > maxLabelW {
 			label = label[:maxLabelW-1] + "…"
 		}
-		gauge := RenderUsageGauge(usedPct, gaugeW, warnThresh, critThresh)
+
+		// Compute optional projection annotation for windowed usage gauges
+		// (5h / 7d / similar). pace = current% / elapsed_minutes / 100.
+		var gauge string
+		if windowDur, ok := gaugeWindowDuration(met.Window); ok {
+			if resetAt, hasReset := snap.Resets[key]; hasReset {
+				resetIn := resetAt.Sub(now)
+				elapsed := windowDur - resetIn
+				var paceFraction float64
+				if elapsed > 0 && usedPct > 0 {
+					elapsedMin := elapsed.Minutes()
+					if elapsedMin > 0 {
+						// fraction-of-window per minute
+						paceFraction = (usedPct / 100) / elapsedMin
+					}
+				}
+				gauge = RenderUsageGaugeWithProjection(usedPct, gaugeW, warnThresh, critThresh, paceFraction, resetIn)
+			} else {
+				gauge = RenderUsageGauge(usedPct, gaugeW, warnThresh, critThresh)
+			}
+		} else {
+			gauge = RenderUsageGauge(usedPct, gaugeW, warnThresh, critThresh)
+		}
+
 		labelR := lipgloss.NewStyle().Foreground(colorSubtext).Width(maxLabelW).Render(label)
 		lines = append(lines, labelR+" "+gauge)
 		if len(lines) >= maxLines {
@@ -249,6 +273,23 @@ func buildDetailGaugeLines(snap core.UsageSnapshot, widget core.DashboardWidget,
 		}
 	}
 	return lines
+}
+
+// gaugeWindowDuration returns the duration of a windowed metric (5h / 7d / 1d
+// / 30d) so projection math can compute elapsed time. Returns (0, false) when
+// the window string isn't recognized — in that case we render the plain gauge.
+func gaugeWindowDuration(window string) (time.Duration, bool) {
+	switch strings.ToLower(strings.TrimSpace(window)) {
+	case "5h":
+		return 5 * time.Hour, true
+	case "1d", "24h", "today":
+		return 24 * time.Hour, true
+	case "7d":
+		return 7 * 24 * time.Hour, true
+	case "30d":
+		return 30 * 24 * time.Hour, true
+	}
+	return 0, false
 }
 
 // buildDetailCostSection builds spending/credit summary with projections.

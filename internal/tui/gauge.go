@@ -2,7 +2,9 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -84,6 +86,80 @@ func RenderGauge(percent float64, width int, warnThresh, critThresh float64) str
 func RenderUsageGauge(usedPercent float64, width int, warnThresh, critThresh float64) string {
 	color := usageGaugeColor(usedPercent, warnThresh, critThresh)
 	return renderGaugeWithLabel(usedPercent, width, color)
+}
+
+// RenderUsageGaugeWithProjection renders a usage gauge with an optional dim
+// annotation line below it showing time-until-reset and/or projected time to
+// 100% based on the supplied pace.
+//
+// paceFraction is the fraction of the window consumed per minute (so 0.005
+// means 0.5% per minute). The caller computes it from current% and elapsed.
+// resetIn is the time remaining until the window resets; zero or negative
+// values suppress the reset half of the annotation.
+//
+// The annotation is skipped (plain gauge returned) when:
+//   - paceFraction is NaN, ±Inf, or <= 0
+//   - usedPercent >= 100 (already at limit, projection is meaningless)
+//
+// If only one of {reset, projection} is meaningful, only that piece renders.
+func RenderUsageGaugeWithProjection(usedPercent float64, width int, warnThresh, critThresh float64, paceFraction float64, resetIn time.Duration) string {
+	gauge := RenderUsageGauge(usedPercent, width, warnThresh, critThresh)
+
+	resetPart := ""
+	if resetIn > 0 {
+		resetPart = "resets in " + formatDurationShort(resetIn)
+	}
+
+	projPart := ""
+	paceValid := !math.IsNaN(paceFraction) && !math.IsInf(paceFraction, 0) && paceFraction > 0
+	if paceValid && usedPercent < 100 {
+		remainingPct := 100 - usedPercent
+		// paceFraction is fraction-per-minute, convert to %-per-minute.
+		pctPerMinute := paceFraction * 100
+		if pctPerMinute > 0 {
+			minutesTo100 := remainingPct / pctPerMinute
+			d := time.Duration(minutesTo100 * float64(time.Minute))
+			if d > 0 {
+				projPart = "projected 100% in " + formatDurationShort(d)
+			}
+		}
+	}
+
+	if resetPart == "" && projPart == "" {
+		return gauge
+	}
+
+	var annotation string
+	switch {
+	case resetPart != "" && projPart != "":
+		annotation = resetPart + " · " + projPart
+	case resetPart != "":
+		annotation = resetPart
+	default:
+		annotation = projPart
+	}
+
+	return gauge + "\n" + dimStyle.Render(annotation)
+}
+
+// formatDurationShort renders a duration as a compact human string like
+// "1h 23m" or "42m" or "5s". Used by gauge projections / reset countdowns.
+func formatDurationShort(d time.Duration) string {
+	if d <= 0 {
+		return "0m"
+	}
+	if d >= time.Hour {
+		h := int(d / time.Hour)
+		m := int((d % time.Hour) / time.Minute)
+		if m == 0 {
+			return fmt.Sprintf("%dh", h)
+		}
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	if d >= time.Minute {
+		return fmt.Sprintf("%dm", int(d/time.Minute))
+	}
+	return fmt.Sprintf("%ds", int(d/time.Second))
 }
 
 func RenderMiniGauge(usedPercent float64, width int) string {
