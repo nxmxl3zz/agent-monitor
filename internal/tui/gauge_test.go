@@ -1,11 +1,121 @@
 package tui
 
 import (
+	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
+
+func TestRenderUsageGaugeWithProjection(t *testing.T) {
+	const usedPercent = 50.0
+	const overLimitPercent = 100.0
+	const width = 20
+	const warn = 0.30
+	const crit = 0.15
+	resetIn := 30 * time.Minute
+
+	cases := []struct {
+		name           string
+		usedPercent    float64
+		paceFraction   float64
+		resetIn        time.Duration
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name:         "happy_path",
+			usedPercent:  usedPercent,
+			paceFraction: 0.01,
+			resetIn:      resetIn,
+			wantContains: []string{"resets in", "projected"},
+		},
+		{
+			name:           "nan_pace",
+			usedPercent:    usedPercent,
+			paceFraction:   math.NaN(),
+			resetIn:        resetIn,
+			wantContains:   []string{"resets in"},
+			wantNotContain: []string{"projected"},
+		},
+		{
+			name:           "inf_pace",
+			usedPercent:    usedPercent,
+			paceFraction:   math.Inf(1),
+			resetIn:        resetIn,
+			wantContains:   []string{"resets in"},
+			wantNotContain: []string{"projected"},
+		},
+		{
+			name:           "zero_pace",
+			usedPercent:    usedPercent,
+			paceFraction:   0,
+			resetIn:        resetIn,
+			wantContains:   []string{"resets in"},
+			wantNotContain: []string{"projected"},
+		},
+		{
+			name:           "negative_pace",
+			usedPercent:    usedPercent,
+			paceFraction:   -0.5,
+			resetIn:        resetIn,
+			wantContains:   []string{"resets in"},
+			wantNotContain: []string{"projected"},
+		},
+		{
+			name:           "over_limit",
+			usedPercent:    overLimitPercent,
+			paceFraction:   0.01,
+			resetIn:        resetIn,
+			wantContains:   []string{"resets in"},
+			wantNotContain: []string{"projected"},
+		},
+		{
+			name:           "reset_only",
+			usedPercent:    usedPercent,
+			paceFraction:   0,
+			resetIn:        resetIn,
+			wantContains:   []string{"resets in"},
+			wantNotContain: []string{"projected"},
+		},
+		{
+			name:           "pace_only",
+			usedPercent:    usedPercent,
+			paceFraction:   0.01,
+			resetIn:        0,
+			wantContains:   []string{"projected"},
+			wantNotContain: []string{"resets in"},
+		},
+		{
+			name:           "neither",
+			usedPercent:    usedPercent,
+			paceFraction:   0,
+			resetIn:        0,
+			wantNotContain: []string{"resets in", "projected"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := RenderUsageGaugeWithProjection(tc.usedPercent, width, warn, crit, tc.paceFraction, tc.resetIn)
+			if out == "" {
+				t.Fatal("expected non-empty output")
+			}
+			for _, want := range tc.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("expected output to contain %q, got %q", want, out)
+				}
+			}
+			for _, notWant := range tc.wantNotContain {
+				if strings.Contains(out, notWant) {
+					t.Errorf("expected output to NOT contain %q, got %q", notWant, out)
+				}
+			}
+		})
+	}
+}
 
 func TestRenderStackedUsageGauge_TwoSegments(t *testing.T) {
 	segments := []GaugeSegment{
