@@ -37,6 +37,10 @@ type DataConfig struct {
 type DashboardProviderConfig struct {
 	AccountID string `json:"account_id"`
 	Enabled   bool   `json:"enabled"`
+	// HideCosts overrides the dashboard-level setting for this account.
+	// nil means "fall through to DashboardConfig.HideCosts (and then to the
+	// plan-aware auto policy)".
+	HideCosts *bool `json:"hide_costs,omitempty"`
 }
 
 type DashboardWidgetSection struct {
@@ -57,6 +61,7 @@ func (p *DashboardProviderConfig) UnmarshalJSON(data []byte) error {
 	type rawDashboardProviderConfig struct {
 		AccountID string `json:"account_id"`
 		Enabled   *bool  `json:"enabled"`
+		HideCosts *bool  `json:"hide_costs"`
 	}
 
 	var raw rawDashboardProviderConfig
@@ -69,6 +74,7 @@ func (p *DashboardProviderConfig) UnmarshalJSON(data []byte) error {
 	if raw.Enabled != nil {
 		p.Enabled = *raw.Enabled
 	}
+	p.HideCosts = raw.HideCosts
 	return nil
 }
 
@@ -121,6 +127,10 @@ type DashboardConfig struct {
 	WidgetSections         []DashboardWidgetSection  `json:"widget_sections,omitempty"`
 	DetailSections         []DetailWidgetSection     `json:"detail_sections,omitempty"`
 	HideSectionsWithNoData bool                      `json:"hide_sections_with_no_data,omitempty"`
+	// HideCosts is the global default for suppressing monetary metrics.
+	// nil means "fall through to the plan-aware auto policy" (see
+	// core.ResolveHideCosts).
+	HideCosts *bool `json:"hide_costs,omitempty"`
 }
 
 type IntegrationState struct {
@@ -334,6 +344,7 @@ func normalizeDashboardProviders(in []DashboardProviderConfig) []DashboardProvid
 		return DashboardProviderConfig{
 			AccountID: normalizeAccountID(entry.AccountID),
 			Enabled:   entry.Enabled,
+			HideCosts: entry.HideCosts,
 		}
 	})
 	filtered := lo.Filter(normalized, func(entry DashboardProviderConfig, _ int) bool { return entry.AccountID != "" })
@@ -522,6 +533,51 @@ func SaveDashboardHideSectionsWithNoData(hide bool) error {
 func SaveDashboardHideSectionsWithNoDataTo(path string, hide bool) error {
 	return modifyConfig(path, func(cfg *Config) {
 		cfg.Dashboard.HideSectionsWithNoData = hide
+	})
+}
+
+// SaveDashboardHideCosts persists the global hide_costs toggle. Pass nil to clear
+// the override (return to plan-aware auto behavior).
+func SaveDashboardHideCosts(hide *bool) error {
+	return SaveDashboardHideCostsTo(ConfigPath(), hide)
+}
+
+func SaveDashboardHideCostsTo(path string, hide *bool) error {
+	return modifyConfig(path, func(cfg *Config) {
+		cfg.Dashboard.HideCosts = hide
+	})
+}
+
+// SaveDashboardProviderHideCosts persists the per-account hide_costs override.
+// Pass nil to clear the override (fall through to global / auto).
+//
+// If no DashboardProviderConfig exists for accountID yet, one is appended with
+// Enabled=true so the override sticks.
+func SaveDashboardProviderHideCosts(accountID string, hide *bool) error {
+	return SaveDashboardProviderHideCostsTo(ConfigPath(), accountID, hide)
+}
+
+func SaveDashboardProviderHideCostsTo(path string, accountID string, hide *bool) error {
+	accountID = normalizeAccountID(accountID)
+	if accountID == "" {
+		return fmt.Errorf("save dashboard provider hide_costs: account_id must be non-empty")
+	}
+	return modifyConfig(path, func(cfg *Config) {
+		found := false
+		for i := range cfg.Dashboard.Providers {
+			if cfg.Dashboard.Providers[i].AccountID == accountID {
+				cfg.Dashboard.Providers[i].HideCosts = hide
+				found = true
+				break
+			}
+		}
+		if !found {
+			cfg.Dashboard.Providers = append(cfg.Dashboard.Providers, DashboardProviderConfig{
+				AccountID: accountID,
+				Enabled:   true,
+				HideCosts: hide,
+			})
+		}
 	})
 }
 
