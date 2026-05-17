@@ -261,7 +261,7 @@ func (m Model) handleSnapshotsMsg(msg SnapshotsMsg) (tea.Model, tea.Cmd) {
 		m.daemon.status = DaemonRunning
 	}
 	for id, snap := range m.snapshots {
-		info := computeDisplayInfo(snap, dashboardWidget(snap.ProviderID))
+		info := computeDisplayInfo(snap, dashboardWidget(snap.ProviderID), m.resolveHideCosts(snap))
 		if info.reason != "" {
 			snap.EnsureMaps()
 			snap.Diagnostics["display_branch"] = info.reason
@@ -721,7 +721,7 @@ func (m Model) detailSectionStarts() []int {
 	if width < 30 {
 		width = 30
 	}
-	sections := buildDetailSections(snap, dashboardWidget(snap.ProviderID), width, m.warnThreshold, m.critThreshold, m.timeWindow)
+	sections := buildDetailSections(snap, dashboardWidget(snap.ProviderID), width, m.warnThreshold, m.critThreshold, m.timeWindow, m.resolveHideCosts(snap))
 	if len(sections) == 0 {
 		return nil
 	}

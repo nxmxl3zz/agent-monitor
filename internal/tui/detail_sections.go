@@ -10,7 +10,9 @@ import (
 
 // buildDetailSections constructs all dashboard-style sections for the detail view.
 // Sections are filtered and ordered according to effectiveDetailSectionOrder().
-func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w int, warnThresh, critThresh float64, timeWindow core.TimeWindow) []detailSection {
+//
+// hideCosts suppresses the Spending and Forecast cards entirely.
+func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w int, warnThresh, critThresh float64, timeWindow core.TimeWindow, hideCosts bool) []detailSection {
 	innerW := w - 8 // card borders + margins + padding
 	if innerW < 30 {
 		innerW = 30
@@ -25,10 +27,14 @@ func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w
 			detailSection{id: "Usage", title: "Usage", icon: "⚡", color: colorYellow, lines: usageLines})
 	}
 
-	// 2. Cost & Credits — spending summary with projections.
-	if costLines := buildDetailCostSection(snap, widget, innerW); len(costLines) > 0 {
-		candidates[core.DetailSectionSpending] = append(candidates[core.DetailSectionSpending],
-			detailSection{id: "Cost", title: "Spending", icon: "💰", color: colorTeal, lines: costLines})
+	// 2. Cost & Credits — spending summary with projections. Suppressed when
+	// hide-costs is on so subscription users don't see misleading
+	// API-equivalent dollar figures.
+	if !hideCosts {
+		if costLines := buildDetailCostSection(snap, widget, innerW); len(costLines) > 0 {
+			candidates[core.DetailSectionSpending] = append(candidates[core.DetailSectionSpending],
+				detailSection{id: "Cost", title: "Spending", icon: "💰", color: colorTeal, lines: costLines})
+		}
 	}
 
 	// 3. Model Burn — composition bar with per-model breakdown + token detail.
@@ -124,10 +130,13 @@ func buildDetailSections(snap core.UsageSnapshot, widget core.DashboardWidget, w
 			detailSection{id: "Cost", title: "Providers", lines: vendorLines, hasOwnHeader: true})
 	}
 
-	// 13. Budget projection (detail-only data).
-	if projLines := buildDetailProjectionSection(snap, innerW); len(projLines) > 0 {
-		candidates[core.DetailSectionForecast] = append(candidates[core.DetailSectionForecast],
-			detailSection{id: "Cost", title: "Forecast", icon: "📊", color: colorSapphire, lines: projLines})
+	// 13. Budget projection (detail-only data). Suppressed when hide-costs
+	// is on because every line is denominated in dollars/hours-of-credits.
+	if !hideCosts {
+		if projLines := buildDetailProjectionSection(snap, innerW); len(projLines) > 0 {
+			candidates[core.DetailSectionForecast] = append(candidates[core.DetailSectionForecast],
+				detailSection{id: "Cost", title: "Forecast", icon: "📊", color: colorSapphire, lines: projLines})
+		}
 	}
 
 	// 14. Other metrics as dot-leader rows.

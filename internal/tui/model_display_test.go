@@ -19,7 +19,7 @@ func TestComputeDisplayInfo_MapsActivityFallbackToUsage(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Usage" {
 		t.Fatalf("tagLabel = %q, want Usage", got.tagLabel)
 	}
@@ -41,7 +41,7 @@ func TestComputeDisplayInfo_MapsGenericMetricsFallbackToUsage(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Usage" {
 		t.Fatalf("tagLabel = %q, want Usage", got.tagLabel)
 	}
@@ -60,7 +60,7 @@ func TestComputeDisplayInfo_PreservesCreditsTag(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Credits" {
 		t.Fatalf("tagLabel = %q, want Credits", got.tagLabel)
 	}
@@ -76,7 +76,7 @@ func TestComputeDisplayInfo_PreservesErrorStatusTag(t *testing.T) {
 		Message:    "boom",
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Error" {
 		t.Fatalf("tagLabel = %q, want Error", got.tagLabel)
 	}
@@ -98,7 +98,7 @@ func TestComputeDisplayInfo_FallbackSkipsDerivedMetrics(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if !strings.Contains(strings.ToLower(got.summary), "core rpm") {
 		t.Fatalf("summary = %q, want core rpm fallback metric", got.summary)
 	}
@@ -160,7 +160,7 @@ func TestComputeDisplayInfo_AvailableBalanceWithPeak_USD(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Credits" {
 		t.Fatalf("tagLabel = %q, want Credits", got.tagLabel)
 	}
@@ -187,7 +187,7 @@ func TestComputeDisplayInfo_AvailableBalanceWithPeak_CNY(t *testing.T) {
 			"available_balance": {Limit: &limit, Used: &used, Remaining: &remaining, Unit: "CNY"},
 		},
 	}
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if !strings.Contains(got.summary, "¥5.00 / ¥100.00 spent") {
 		t.Errorf("summary = %q, want '¥5.00 / ¥100.00 spent'", got.summary)
 	}
@@ -207,7 +207,7 @@ func TestComputeDisplayInfo_SpendLimitWithoutIndividualSpend(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Credits" {
 		t.Fatalf("tagLabel = %q, want Credits", got.tagLabel)
 	}
@@ -232,7 +232,7 @@ func TestComputeDisplayInfo_SpendLimitWithIndividualSpend(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Credits" {
 		t.Fatalf("tagLabel = %q, want Credits", got.tagLabel)
 	}
@@ -265,7 +265,7 @@ func TestComputeDisplayInfo_IndividualSpendClampedToZero(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	// team portion should be clamped to 0, not negative
 	if !strings.Contains(got.detail, "team $0") {
 		t.Fatalf("detail = %q, want 'team $0' (clamped)", got.detail)
@@ -434,7 +434,7 @@ func TestComputeDisplayInfo_UsageFiveHourBranch(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Usage" {
 		t.Fatalf("tagLabel = %q, want Usage", got.tagLabel)
 	}
@@ -462,7 +462,7 @@ func TestComputeDisplayInfo_TodayApiCostBranchWithoutFiveHour(t *testing.T) {
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Credits" {
 		t.Fatalf("tagLabel = %q, want Credits", got.tagLabel)
 	}
@@ -497,7 +497,7 @@ func TestComputeDisplayInfo_BillingBlockFallbackClassifiesAsUsage(t *testing.T) 
 		},
 	}
 
-	got := computeDisplayInfo(snap, core.DefaultDashboardWidget())
+	got := computeDisplayInfo(snap, core.DefaultDashboardWidget(), false)
 	if got.tagLabel != "Usage" {
 		t.Fatalf("tagLabel = %q, want Usage", got.tagLabel)
 	}

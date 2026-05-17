@@ -239,6 +239,13 @@ type Model struct {
 	detailWidgetSections   []config.DetailWidgetSection
 	hideSectionsWithNoData bool
 
+	// hideCostsGlobal mirrors DashboardConfig.HideCosts; nil means "fall
+	// through to plan-aware auto".
+	hideCostsGlobal *bool
+	// hideCostsByAccount mirrors DashboardProviderConfig.HideCosts entries;
+	// missing key or nil pointer means "fall through to global / auto".
+	hideCostsByAccount map[string]*bool
+
 	timeWindow            core.TimeWindow
 	lastSnapshotRequestID uint64
 
@@ -539,6 +546,25 @@ func (m *Model) applyDashboardConfig(dashboardCfg config.DashboardConfig, accoun
 	m.setWidgetSections(dashboardCfg.WidgetSections)
 	m.setDetailWidgetSections(dashboardCfg.DetailSections)
 	m.hideSectionsWithNoData = dashboardCfg.HideSectionsWithNoData
+
+	m.hideCostsGlobal = dashboardCfg.HideCosts
+	m.hideCostsByAccount = make(map[string]*bool, len(dashboardCfg.Providers))
+	for _, pref := range dashboardCfg.Providers {
+		if pref.AccountID == "" {
+			continue
+		}
+		m.hideCostsByAccount[pref.AccountID] = pref.HideCosts
+	}
+}
+
+// resolveHideCosts returns whether monetary metrics should be suppressed for
+// the given snapshot, using the current Model's per-account and global state.
+func (m Model) resolveHideCosts(snap core.UsageSnapshot) bool {
+	var perAccount *bool
+	if m.hideCostsByAccount != nil {
+		perAccount = m.hideCostsByAccount[snap.AccountID]
+	}
+	return core.ResolveHideCosts(snap, perAccount, m.hideCostsGlobal)
 }
 
 func (m *Model) ensureSnapshotProvidersKnown() {

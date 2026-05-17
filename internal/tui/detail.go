@@ -35,12 +35,16 @@ func DetailTabs(snap core.UsageSnapshot) []string {
 // RenderDetailContent is the pure render function for the detail panel.
 // `now` is the reference time used for "X ago" labels — pass m.viewNow() in
 // production paths, or time.Now() in tests that don't care about pinning.
-func RenderDetailContent(snap core.UsageSnapshot, now time.Time, w int, warnThresh, critThresh float64, activeTab int, timeWindow core.TimeWindow) string {
+//
+// hideCosts suppresses monetary metrics (dollar amounts, burn rate, budget
+// gauges, forecasts). Token counts, quota percentages, and usage gauges
+// remain regardless.
+func RenderDetailContent(snap core.UsageSnapshot, now time.Time, w int, warnThresh, critThresh float64, activeTab int, timeWindow core.TimeWindow, hideCosts bool) string {
 	var sb strings.Builder
 	widget := dashboardWidget(snap.ProviderID)
 
 	// ── Compact top bar ──
-	renderDetailCompactHeader(&sb, snap, now, w)
+	renderDetailCompactHeader(&sb, snap, now, w, hideCosts)
 
 	if len(snap.Metrics) == 0 && len(snap.ModelUsage) == 0 {
 		if snap.Message != "" {
@@ -52,7 +56,7 @@ func RenderDetailContent(snap core.UsageSnapshot, now time.Time, w int, warnThre
 	}
 
 	// Build and render all sections as bordered cards.
-	sections := buildDetailSections(snap, widget, w, warnThresh, critThresh, timeWindow)
+	sections := buildDetailSections(snap, widget, w, warnThresh, critThresh, timeWindow, hideCosts)
 	for _, sec := range sections {
 		renderDetailCard(&sb, sec, w)
 	}
@@ -63,8 +67,8 @@ func RenderDetailContent(snap core.UsageSnapshot, now time.Time, w int, warnThre
 // ── Compact Header ─────────────────────────────────────────────────────────
 // Replaces the old bordered card header. Shows essential info in 2 lines.
 
-func renderDetailCompactHeader(sb *strings.Builder, snap core.UsageSnapshot, now time.Time, w int) {
-	di := computeDisplayInfo(snap, dashboardWidget(snap.ProviderID))
+func renderDetailCompactHeader(sb *strings.Builder, snap core.UsageSnapshot, now time.Time, w int, hideCosts bool) {
+	di := computeDisplayInfo(snap, dashboardWidget(snap.ProviderID), hideCosts)
 
 	// Line 1: status icon + name (left) ... provider + meta + status badge (right)
 	statusIcon := lipgloss.NewStyle().Foreground(StatusColor(snap.Status)).Render(StatusIcon(snap.Status))

@@ -145,7 +145,7 @@ func (m Model) renderWidgetPanelByIndex(index, w, h, bodyOffset int, selected bo
 }
 
 func (m Model) renderListItem(snap core.UsageSnapshot, selected bool, w int) string {
-	di := computeDisplayInfo(snap, dashboardWidget(snap.ProviderID))
+	di := computeDisplayInfo(snap, dashboardWidget(snap.ProviderID), m.resolveHideCosts(snap))
 
 	iconStr := lipgloss.NewStyle().Foreground(StatusColor(snap.Status)).Render(StatusIcon(snap.Status))
 	nameStyle := lipgloss.NewStyle().Foreground(colorText)

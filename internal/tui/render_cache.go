@@ -27,6 +27,7 @@ func (m *Model) invalidateRenderCaches() {
 }
 
 func (m *Model) cachedDetailContent(id string, snap core.UsageSnapshot, w int, activeTab int) string {
+	hideCosts := m.resolveHideCosts(snap)
 	key := strings.Join([]string{
 		id,
 		snap.ProviderID,
@@ -43,12 +44,13 @@ func (m *Model) cachedDetailContent(id string, snap core.UsageSnapshot, w int, a
 		string(m.timeWindow),
 		strconv.FormatFloat(m.warnThreshold, 'f', 4, 64),
 		strconv.FormatFloat(m.critThreshold, 'f', 4, 64),
+		strconv.FormatBool(hideCosts),
 	}, "|")
 	if m.detailCache.key == key {
 		return m.detailCache.content
 	}
 
-	content := RenderDetailContent(snap, m.viewNow(), w, m.warnThreshold, m.critThreshold, activeTab, m.timeWindow)
+	content := RenderDetailContent(snap, m.viewNow(), w, m.warnThreshold, m.critThreshold, activeTab, m.timeWindow, hideCosts)
 	m.detailCache = detailRenderCacheEntry{
 		key:     key,
 		content: content,

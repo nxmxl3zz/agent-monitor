@@ -17,8 +17,8 @@ type providerDisplayInfo struct {
 	reason       string
 }
 
-func computeDisplayInfo(snap core.UsageSnapshot, widget core.DashboardWidget) providerDisplayInfo {
-	return normalizeProviderDisplayInfoType(computeDisplayInfoRaw(snap, widget))
+func computeDisplayInfo(snap core.UsageSnapshot, widget core.DashboardWidget, hideCosts bool) providerDisplayInfo {
+	return normalizeProviderDisplayInfoType(computeDisplayInfoRaw(snap, widget, hideCosts))
 }
 
 func normalizeProviderDisplayInfoType(info providerDisplayInfo) providerDisplayInfo {
@@ -35,9 +35,15 @@ func normalizeProviderDisplayInfoType(info providerDisplayInfo) providerDisplayI
 	return info
 }
 
-func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget) providerDisplayInfo {
+func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget, hideCosts bool) providerDisplayInfo {
 	info := providerDisplayInfo{gaugePercent: -1}
 	costSummary := core.ExtractAnalyticsCostSummary(snap)
+	if hideCosts {
+		// Burn rate ($X.XX/h) is the only field this function pulls from
+		// the cost summary that we suppress; zeroing it here keeps the
+		// downstream branches simple (they all guard on >0).
+		costSummary.BurnRateUSD = 0
+	}
 
 	switch snap.Status {
 	case core.StatusError:
@@ -162,7 +168,7 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 	}
 
 	if widget.DisplayStyle == core.DashboardDisplayStyleDetailedCredits {
-		return computeDetailedCreditsDisplayInfo(snap, info)
+		return computeDetailedCreditsDisplayInfo(snap, info, hideCosts)
 	}
 
 	if m, ok := snap.Metrics["credits"]; ok {
@@ -273,7 +279,7 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 		info.summary = strings.Join(parts, " · ")
 
 		var detailParts []string
-		if dc, ok2 := snap.Metrics["today_api_cost"]; ok2 && dc.Used != nil {
+		if dc, ok2 := snap.Metrics["today_api_cost"]; ok2 && dc.Used != nil && !hideCosts {
 			tag := metricWindowTag(dc)
 			if tag != "" {
 				detailParts = append(detailParts, fmt.Sprintf("~$%.2f %s", *dc.Used, tag))
@@ -295,7 +301,7 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 		info.reason = "billing_block_fallback"
 
 		var parts []string
-		if dc, ok2 := snap.Metrics["today_api_cost"]; ok2 && dc.Used != nil {
+		if dc, ok2 := snap.Metrics["today_api_cost"]; ok2 && dc.Used != nil && !hideCosts {
 			tag := metricWindowTag(dc)
 			if tag != "" {
 				parts = append(parts, fmt.Sprintf("~$%.2f %s", *dc.Used, tag))
@@ -309,10 +315,10 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 		info.summary = strings.Join(parts, " · ")
 
 		var detailParts []string
-		if bc, ok2 := snap.Metrics["5h_block_cost"]; ok2 && bc.Used != nil {
+		if bc, ok2 := snap.Metrics["5h_block_cost"]; ok2 && bc.Used != nil && !hideCosts {
 			detailParts = append(detailParts, fmt.Sprintf("~$%.2f 5h block", *bc.Used))
 		}
-		if wc, ok2 := snap.Metrics["7d_api_cost"]; ok2 && wc.Used != nil {
+		if wc, ok2 := snap.Metrics["7d_api_cost"]; ok2 && wc.Used != nil && !hideCosts {
 			tag := metricWindowTag(wc)
 			if tag != "" {
 				detailParts = append(detailParts, fmt.Sprintf("~$%.2f/%s", *wc.Used, tag))
@@ -331,7 +337,7 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 		return info
 	}
 
-	if m, ok := snap.Metrics["today_api_cost"]; ok && m.Used != nil {
+	if m, ok := snap.Metrics["today_api_cost"]; ok && m.Used != nil && !hideCosts {
 		info.tagEmoji = "💰"
 		info.tagLabel = "Credits"
 		info.reason = "today_api_cost"
@@ -348,10 +354,10 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 		info.summary = strings.Join(parts, " · ")
 
 		var detailParts []string
-		if bc, ok2 := snap.Metrics["5h_block_cost"]; ok2 && bc.Used != nil {
+		if bc, ok2 := snap.Metrics["5h_block_cost"]; ok2 && bc.Used != nil && !hideCosts {
 			detailParts = append(detailParts, fmt.Sprintf("~$%.2f 5h block", *bc.Used))
 		}
-		if wc, ok2 := snap.Metrics["7d_api_cost"]; ok2 && wc.Used != nil {
+		if wc, ok2 := snap.Metrics["7d_api_cost"]; ok2 && wc.Used != nil && !hideCosts {
 			wcTag := metricWindowTag(wc)
 			if wcTag != "" {
 				detailParts = append(detailParts, fmt.Sprintf("~$%.2f/%s", *wc.Used, wcTag))
@@ -369,7 +375,7 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 		return info
 	}
 
-	if m, ok := snap.Metrics["5h_block_cost"]; ok && m.Used != nil {
+	if m, ok := snap.Metrics["5h_block_cost"]; ok && m.Used != nil && !hideCosts {
 		info.tagEmoji = "⚡"
 		info.tagLabel = "Usage"
 		info.summary = fmt.Sprintf("~$%.2f / 5h block", *m.Used)
@@ -420,13 +426,13 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 		return info
 	}
 
-	if m, ok := snap.Metrics["total_cost_usd"]; ok && m.Used != nil {
+	if m, ok := snap.Metrics["total_cost_usd"]; ok && m.Used != nil && !hideCosts {
 		info.tagEmoji = "💰"
 		info.tagLabel = "Credits"
 		info.summary = fmt.Sprintf("$%.2f total", *m.Used)
 		return info
 	}
-	if m, ok := snap.Metrics["all_time_api_cost"]; ok && m.Used != nil {
+	if m, ok := snap.Metrics["all_time_api_cost"]; ok && m.Used != nil && !hideCosts {
 		info.tagEmoji = "💰"
 		info.tagLabel = "Credits"
 		info.summary = fmt.Sprintf("~$%.2f total (API est.)", *m.Used)
@@ -479,8 +485,11 @@ func computeDisplayInfoRaw(snap core.UsageSnapshot, widget core.DashboardWidget)
 	return info
 }
 
-func computeDetailedCreditsDisplayInfo(snap core.UsageSnapshot, info providerDisplayInfo) providerDisplayInfo {
+func computeDetailedCreditsDisplayInfo(snap core.UsageSnapshot, info providerDisplayInfo, hideCosts bool) providerDisplayInfo {
 	costSummary := core.ExtractAnalyticsCostSummary(snap)
+	if hideCosts {
+		costSummary.BurnRateUSD = 0
+	}
 
 	if m, ok := snap.Metrics["credit_balance"]; ok && m.Limit != nil && m.Remaining != nil {
 		info.tagEmoji = "💰"

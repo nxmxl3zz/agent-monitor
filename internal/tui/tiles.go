@@ -374,7 +374,7 @@ func (m Model) renderTile(snap core.UsageSnapshot, selected, modelMixExpanded bo
 	}
 
 	widget := dashboardWidget(snap.ProviderID)
-	di := computeDisplayInfo(snap, widget)
+	di := computeDisplayInfo(snap, widget, m.resolveHideCosts(snap))
 	provColor := ProviderColor(snap.ProviderID)
 	accentSep := lipgloss.NewStyle().Foreground(provColor).Render(strings.Repeat("━", innerW))
 	dimSep := surface1Style.Render(strings.Repeat("─", innerW))
