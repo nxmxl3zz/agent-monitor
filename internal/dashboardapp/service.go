@@ -56,6 +56,10 @@ func (s *Service) SaveDashboardProviders(providersCfg []config.DashboardProvider
 	return config.SaveDashboardProviders(providersCfg)
 }
 
+func (s *Service) SaveDashboardProviderHideCosts(accountID string, hide *bool) error {
+	return config.SaveDashboardProviderHideCosts(accountID, hide)
+}
+
 func (s *Service) SaveDashboardView(view string) error {
 	return config.SaveDashboardView(view)
 }

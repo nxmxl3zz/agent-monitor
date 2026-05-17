@@ -55,6 +55,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case dashboardPrefsPersistedMsg:
 		return m.applyPersisted(msg.err, "save failed", "saved"), nil
+	case dashboardProviderHideCostsPersistedMsg:
+		return m.applyPersisted(msg.err, "hide_costs save failed", "hide_costs saved"), nil
 	case dashboardViewPersistedMsg:
 		return m.applyPersisted(msg.err, "view save failed", "view saved"), nil
 	case dashboardWidgetSectionsPersistedMsg:
@@ -466,6 +468,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "t":
 			m.invalidateRenderCaches()
 			return m, m.persistThemeCmd(CycleTheme())
+		case "c":
+			if m.screen == screenDashboard {
+				if mdl, cmd, handled := m.toggleHideCostsOverride(); handled {
+					return mdl, cmd
+				}
+			}
 		case "w":
 			return m.cycleTimeWindow()
 		case "v":
@@ -485,6 +493,21 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleAnalyticsKey(msg)
 	}
 	return m.handleDashboardTilesKey(msg)
+}
+
+// toggleHideCostsOverride cycles the per-account hide_costs override for the
+// currently focused dashboard tile/row through auto (nil) → hide (true) →
+// show (false) → auto. Returns handled=false when no tile is focused (so the
+// keystroke can fall through to other handlers).
+func (m Model) toggleHideCostsOverride() (Model, tea.Cmd, bool) {
+	ids := m.filteredIDs()
+	accountID := m.selectedTileID(ids)
+	if accountID == "" {
+		return m, nil, false
+	}
+	next := m.cycleHideCostsOverride(accountID)
+	m.invalidateRenderCaches()
+	return m, m.persistDashboardProviderHideCostsCmd(accountID, next), true
 }
 
 func (m Model) handleDashboardTilesKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

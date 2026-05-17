@@ -146,6 +146,7 @@ func (m Model) renderHelpOverlay(screenW, screenH int) string {
 		struct{ key, desc string }{"r", "Refresh"},
 		struct{ key, desc string }{"t", "Cycle theme"},
 		struct{ key, desc string }{"w", "Cycle time window"},
+		struct{ key, desc string }{"c", "toggle hide-costs for focused account (auto/hide/show)"},
 	)
 
 	groups := []keyGroup{

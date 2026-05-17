@@ -37,6 +37,19 @@ func (m Model) persistDashboardPrefsCmd() tea.Cmd {
 	}
 }
 
+func (m Model) persistDashboardProviderHideCostsCmd(accountID string, hide *bool) tea.Cmd {
+	return func() tea.Msg {
+		if m.services == nil {
+			return dashboardProviderHideCostsPersistedMsg{accountID: accountID, err: fmt.Errorf("hide_costs service unavailable")}
+		}
+		err := m.services.SaveDashboardProviderHideCosts(accountID, hide)
+		if err != nil {
+			log.Printf("dashboard provider hide_costs persist (%s): %v", accountID, err)
+		}
+		return dashboardProviderHideCostsPersistedMsg{accountID: accountID, err: err}
+	}
+}
+
 func (m Model) persistDashboardViewCmd() tea.Cmd {
 	view := string(m.configuredDashboardView())
 	return func() tea.Msg {

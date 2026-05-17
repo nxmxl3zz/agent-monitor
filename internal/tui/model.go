@@ -163,6 +163,7 @@ type browserPickerState struct {
 type Services interface {
 	SaveTheme(themeName string) error
 	SaveDashboardProviders(providers []config.DashboardProviderConfig) error
+	SaveDashboardProviderHideCosts(accountID string, hide *bool) error
 	SaveDashboardView(view string) error
 	SaveDashboardWidgetSections(sections []config.DashboardWidgetSection) error
 	SaveDetailWidgetSections(sections []config.DetailWidgetSection) error
@@ -320,6 +321,10 @@ type themePersistedMsg struct {
 }
 type dashboardPrefsPersistedMsg struct {
 	err error
+}
+type dashboardProviderHideCostsPersistedMsg struct {
+	accountID string
+	err       error
 }
 type dashboardViewPersistedMsg struct {
 	err error
@@ -565,6 +570,33 @@ func (m Model) resolveHideCosts(snap core.UsageSnapshot) bool {
 		perAccount = m.hideCostsByAccount[snap.AccountID]
 	}
 	return core.ResolveHideCosts(snap, perAccount, m.hideCostsGlobal)
+}
+
+// cycleHideCostsOverride advances the per-account hide_costs override through
+// the tristate auto (nil) → hide (true) → show (false) → auto (nil) cycle for
+// the given accountID. Returns the new override pointer value.
+func (m *Model) cycleHideCostsOverride(accountID string) *bool {
+	if m.hideCostsByAccount == nil {
+		m.hideCostsByAccount = make(map[string]*bool)
+	}
+	current := m.hideCostsByAccount[accountID]
+	var next *bool
+	switch {
+	case current == nil:
+		t := true
+		next = &t
+	case *current:
+		f := false
+		next = &f
+	default:
+		next = nil
+	}
+	if next == nil {
+		delete(m.hideCostsByAccount, accountID)
+	} else {
+		m.hideCostsByAccount[accountID] = next
+	}
+	return next
 }
 
 func (m *Model) ensureSnapshotProvidersKnown() {
