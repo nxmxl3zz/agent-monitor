@@ -20,6 +20,7 @@ import (
 	"github.com/janekbaraniewski/openusage/internal/providers/groq"
 	"github.com/janekbaraniewski/openusage/internal/providers/hermes"
 	"github.com/janekbaraniewski/openusage/internal/providers/kilocode"
+	"github.com/janekbaraniewski/openusage/internal/providers/kiro"
 	"github.com/janekbaraniewski/openusage/internal/providers/mistral"
 	"github.com/janekbaraniewski/openusage/internal/providers/moonshot"
 	"github.com/janekbaraniewski/openusage/internal/providers/mux"
@@ -64,6 +65,7 @@ func AllProviders() []core.UsageProvider {
 		crush.New(),
 		roocode.New(),
 		kilocode.New(),
+		kiro.New(),
 		zed.New(),
 	}
 }

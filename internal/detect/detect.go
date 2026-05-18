@@ -57,6 +57,7 @@ func AutoDetect() Result {
 	detectCrush(&result)
 	detectRooCode(&result)
 	detectKiloCode(&result)
+	detectKiro(&result)
 	detectZed(&result)
 
 	// Phase 2: process env vars. Most authoritative; runs before any
