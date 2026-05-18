@@ -59,3 +59,5 @@ perplexitykey.txt
 # Captured HAR/cookie files for provider reverse-engineering — must never be committed
 perplexity-cookies.txt
 pplx-cookies.txt
+# Local drafts / scratch — never commit
+drafts/
