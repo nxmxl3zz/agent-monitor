@@ -100,6 +100,10 @@ The base URL for the live endpoint is, in order: `acct.BaseURL` → `extra.chatg
 - **Per-token spend in dollars from local sessions.** Codex sessions don't carry pricing — only token counts. The credit balance is the only $ figure, and it comes from the live endpoint.
 - **Hook-driven real-time events without the integration.** Install the `codex` integration (see [Daemon integrations](../daemon/integrations.md)) for per-turn events.
 
+:::note Cost values hidden by default on Plus / Pro / Team / Enterprise
+On a ChatGPT subscription plan (Plus, Pro, Team, Enterprise) the dollar number is misleading — usage is governed by rate-limit windows, not by per-call pricing. OpenUsage hides cost columns by default whenever the live `plan_type` reports a subscription tier; rate-limit windows, sessions, and tokens stay visible. Override with [`dashboard.hide_costs`](../reference/configuration.md#dashboardhide_costs) or the <kbd>c</kbd> keystroke.
+:::
+
 ### How fresh is the data?
 
 - Polling: every 30 s by default. JSONL files are re-parsed when their mtime/size changes; otherwise served from cache.

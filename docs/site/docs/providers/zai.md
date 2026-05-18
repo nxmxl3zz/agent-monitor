@@ -89,6 +89,10 @@ Each poll (default every 30 seconds in daemon mode) hits up to five endpoints. A
 - Source: a flag in the `quota/limit` response.
 - Transform: stored as `Attributes["subscription_status"]`. When no coding package is active, the value is `inactive_or_free` and the tile flags it.
 
+:::note Cost values hidden by default on `glm_coding_plan*`
+Z.AI's coding packages (anything whose subscription status starts with `glm_coding_plan`) bill a flat package fee — the per-call dollar figures on `model-usage` are reference numbers, not what your card is charged. OpenUsage hides cost columns by default for those subscriptions; the 5h window, monthly usage, and credit grants stay visible. Free / `inactive_or_free` accounts pay per-call and keep costs visible. Override with [`dashboard.hide_costs`](../reference/configuration.md#dashboardhide_costs) or the <kbd>c</kbd> keystroke.
+:::
+
 ### Per-model rows
 
 - Source: rows under `data` of `model-usage`. Each row carries a model name, request count, input/output/reasoning/cached tokens, cost in USD, and tool calls.

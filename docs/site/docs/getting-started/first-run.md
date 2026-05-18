@@ -41,7 +41,7 @@ A tile shows the most useful number per provider, plus a status. Examples of wha
 
 | Provider | Primary metric | What's interesting |
 |---|---|---|
-| Claude Code | Cost (estimated) | Per-model token mix, current 5h billing block, burn rate |
+| Claude Code | Cost (API key) / 5h block (Pro / Max) | Per-model token mix, current 5h billing block, burn rate. Cost is hidden by default on Pro / Max subscriptions — see [`dashboard.hide_costs`](../reference/configuration.md#dashboardhide_costs). |
 | Cursor | Plan spend | Used vs included, plus AI code score |
 | Copilot | Quota remaining | Chat / completions / premium interactions |
 | OpenRouter | Credits | Daily/weekly/monthly usage, model mix |

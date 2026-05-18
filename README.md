@@ -209,6 +209,7 @@ openusage integrations uninstall <id>     # Remove
 | `/` | Filter providers |
 | `t` | Cycle theme |
 | `w` | Cycle time window |
+| `c` | Cycle cost visibility for focused tile (auto → hide → show → auto, persists per-account) |
 | `,` | Open settings |
 | `Shift+J` / `Shift+K` | Reorder providers |
 | `?` | Help |

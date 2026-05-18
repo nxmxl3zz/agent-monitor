@@ -355,9 +355,10 @@ Read-only mirror of accounts the detector found at startup. Format is identical 
   },
   "dashboard": {
     "view": "grid",
+    "hide_costs": null,
     "providers": [
       { "account_id": "openai-personal", "enabled": true },
-      { "account_id": "anthropic-work",  "enabled": true },
+      { "account_id": "anthropic-work",  "enabled": true,  "hide_costs": true },
       { "account_id": "openrouter",      "enabled": false }
     ],
     "widget_sections": [

@@ -101,6 +101,10 @@ No direct HTTPS calls are made — everything goes through `gh`, which uses the 
 - **$ spend per turn.** Copilot is per-seat, so the dashboard exposes seat counts and quota usage rather than dollars per call.
 - **Org metrics for non-admin accounts.** GitHub does not return them.
 
+:::note Cost values hidden by default on Individual / Business / Enterprise
+Copilot bills per seat on every plan, so per-turn dollar figures are not meaningful. OpenUsage hides cost columns by default on all Copilot plans (Individual, Business, Enterprise) and surfaces quotas, seats, and rate limits instead. Override with [`dashboard.hide_costs`](../reference/configuration.md#dashboardhide_costs) or the <kbd>c</kbd> keystroke.
+:::
+
 ### How fresh is the data?
 
 - Polled every 30 s by default. `gh` calls are throttled by GitHub's own rate limit; the values OpenUsage reads include `remaining` and `reset` so you can see headroom.

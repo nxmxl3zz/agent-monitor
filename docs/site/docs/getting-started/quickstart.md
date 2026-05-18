@@ -52,6 +52,7 @@ The defaults you'll use most often:
 | <kbd>/</kbd> | Filter providers |
 | <kbd>v</kbd> | Cycle dashboard view (Grid → Stacked → Tabs → Split → Compare) |
 | <kbd>w</kbd> | Cycle time window (today / 3d / 7d / 30d / all) |
+| <kbd>c</kbd> | Cycle cost visibility for focused tile (auto → hide → show → auto, persists per-account) |
 | <kbd>t</kbd> | Cycle theme |
 | <kbd>,</kbd> | Open settings |
 | <kbd>?</kbd> | Help overlay |

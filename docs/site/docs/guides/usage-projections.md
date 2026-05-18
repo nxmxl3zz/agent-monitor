@@ -70,6 +70,7 @@ Projection requires three things:
 In practice, the annotation shows up on:
 
 - Claude Code 5-hour billing blocks.
+- Codex CLI primary and secondary rate-limit windows. The live usage endpoint reports `window_minutes` and a `resets_at` timestamp; primary windows are `300m → 5h` (recognized) and secondary windows are `10080m → 7d` (recognized). Both render with a projection. Other plans may emit non-standard `window_minutes` values (e.g. `60`, `1440`); those format as `1h` or `1d`, of which only `1d` is recognized — see the window-string allowlist above.
 - Z.AI coding-plan 5h and 24h usage gauges.
 - Cursor monthly / 14-day plan caps.
 - Ollama request quotas where the upstream reports a `5h` window.

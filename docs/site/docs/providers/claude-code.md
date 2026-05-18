@@ -192,6 +192,12 @@ Costs are API-equivalent estimates derived from token counts and public pricing 
 
 The Cost tile is an **API-equivalent estimate**: the provider takes input/output/cache token counts from your local conversation logs and multiplies by Anthropic's published per-million rates. That's what the same usage would cost on the API. A Pro / Max subscription bills flat-rate, so the local estimate often exceeds your actual subscription charge — that's a feature, not a bug; it's the leverage you get from the subscription.
 
+:::note Cost values hidden by default on Pro / Max
+Because the dollar number is API-equivalent and unrelated to what you are actually charged, OpenUsage hides cost values by default when `~/.claude.json` shows an active Pro or Max subscription. The plan-aware default leaves token totals, the 5h block, and the usage projection visible — only dollar columns are suppressed.
+
+Override the default by setting [`dashboard.hide_costs`](../reference/configuration.md#dashboardhide_costs) (top-level or per-account) or by pressing <kbd>c</kbd> on the focused tile to cycle auto → hide → show → auto. The [usage-projection annotation](../guides/usage-projections.md) is unaffected — it is a usage signal, not a cost signal.
+:::
+
 ### Why does the 5-hour block reset at a weird time?
 
 A block starts at `floor(timestamp_of_first_message, 1h)` and ends 5 hours later. The window is local to your machine and rolls forward only when a turn lands after the prior block's end. Quiet periods don't slide it; a single late-night turn opens a new block aligned to that hour.
