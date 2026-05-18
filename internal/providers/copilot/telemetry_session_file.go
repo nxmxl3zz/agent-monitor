@@ -57,6 +57,10 @@ func parseCopilotTelemetrySessionFile(path, sessionID string) ([]shared.Telemetr
 		appendSessionEvents(&out, &state, lineNum+1, evt, occurredAt)
 	}
 
+	// Dedup OTel-style tool-call records (request/response/metric for the same
+	// tool_call_id). Highest-priority record wins; see telemetry_dedup.go.
+	out = dedupCopilotOTelToolEvents(out)
+
 	return out, nil
 }
 
