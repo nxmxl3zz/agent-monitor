@@ -11,18 +11,18 @@ import (
 // hermesSession is the in-memory representation of one row of the sessions
 // table.
 type hermesSession struct {
-	ID              string
-	Model           string
-	Provider        string
-	StartedAt       time.Time
-	MessageCount    int64
-	InputTokens     int64
-	OutputTokens    int64
-	CacheReadTokens int64
-	CacheWriteTok   int64
-	ReasoningTokens int64
-	CostUSD         float64
-	HasCost         bool
+	ID               string
+	Model            string
+	Provider         string
+	StartedAt        time.Time
+	MessageCount     int64
+	InputTokens      int64
+	OutputTokens     int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	ReasoningTokens  int64
+	CostUSD          float64
+	HasCost          bool
 }
 
 // columnPresence summarises which optional columns are present in the
@@ -200,18 +200,18 @@ func queryHermesSessions(ctx context.Context, dbPath string) ([]hermesSession, e
 		}
 
 		out = append(out, hermesSession{
-			ID:              strings.TrimSpace(id),
-			Model:           model,
-			Provider:        strings.TrimSpace(billing.String),
-			StartedAt:       ts,
-			MessageCount:    nonNegativeInt64(messageCount),
-			InputTokens:     in,
-			OutputTokens:    outTok,
-			CacheReadTokens: cr,
-			CacheWriteTok:   cw,
-			ReasoningTokens: reason,
-			CostUSD:         cost,
-			HasCost:         hasCost,
+			ID:               strings.TrimSpace(id),
+			Model:            model,
+			Provider:         strings.TrimSpace(billing.String),
+			StartedAt:        ts,
+			MessageCount:     nonNegativeInt64(messageCount),
+			InputTokens:      in,
+			OutputTokens:     outTok,
+			CacheReadTokens:  cr,
+			CacheWriteTokens: cw,
+			ReasoningTokens:  reason,
+			CostUSD:          cost,
+			HasCost:          hasCost,
 		})
 	}
 	if err := rows.Err(); err != nil {

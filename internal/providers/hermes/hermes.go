@@ -171,7 +171,7 @@ func populateSnapshot(snap *core.UsageSnapshot, sessions []hermesSession, now ti
 		bucket.input += s.InputTokens
 		bucket.output += s.OutputTokens
 		bucket.cacheRead += s.CacheReadTokens
-		bucket.cacheWrite += s.CacheWriteTok
+		bucket.cacheWrite += s.CacheWriteTokens
 		bucket.reasoning += s.ReasoningTokens
 		bucket.messages += s.MessageCount
 		bucket.sessions++
@@ -186,7 +186,7 @@ func populateSnapshot(snap *core.UsageSnapshot, sessions []hermesSession, now ti
 		totalInput += s.InputTokens
 		totalOutput += s.OutputTokens
 		totalCacheRead += s.CacheReadTokens
-		totalCacheWrite += s.CacheWriteTok
+		totalCacheWrite += s.CacheWriteTokens
 		totalReasoning += s.ReasoningTokens
 		totalMessages += s.MessageCount
 		if s.HasCost {

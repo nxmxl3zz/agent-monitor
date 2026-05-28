@@ -125,6 +125,17 @@ func resolveDBPaths(acct core.AccountConfig) []string {
 	return discoverDBs(roots, defaultMaxDepth)
 }
 
+// DiscoverDBPaths walks the default search roots (or the override in
+// $OPENUSAGE_CRUSH_ROOTS) and returns every `.crush/crush.db` it finds.
+// Exported so the detect package can seed `db_paths` on the auto-detected
+// account without duplicating the walker.
+func DiscoverDBPaths() []string {
+	if env := strings.TrimSpace(os.Getenv(EnvSearchRoots)); env != "" {
+		return discoverDBs(splitPathList(env), defaultMaxDepth)
+	}
+	return discoverDBs(defaultSearchRoots(), defaultMaxDepth)
+}
+
 // discoverDBs walks each root with WalkDir bounded to maxDepth, looking
 // for files at `<dir>/.crush/crush.db`. Directories we know never hold
 // project trees (node_modules, .git, etc.) are skipped to keep walks
