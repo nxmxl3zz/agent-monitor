@@ -72,3 +72,16 @@ The active window is part of `settings.json` under the UI section. Editing it ma
 ## Window scoping in the daemon
 
 Internally the daemon's `ReadModel` accepts a window when the TUI requests `/v1/read-model`. The same `UsageSnapshot` shape comes back, with all aggregate fields recomputed for the chosen window. Switching windows therefore costs one round-trip, not a re-poll.
+
+## Windowed spend for credit providers
+
+Token/request activity is windowed by filtering the telemetry event stream. Credit and balance figures are different: a provider's billing API usually exposes only a **lifetime total** (OpenRouter's `total_usage`), a **current balance** (Moonshot, DeepSeek, xAI), or a **billing-cycle** figure — none of which is the spend within an arbitrary trailing window.
+
+To make the window selector meaningful for credits, the daemon records a compact numeric **balance observation** for each money metric on every poll, into a dedicated `balance_observations` table that is **not** subject to the 1-hour raw-payload prune. Windowed spend is then derived from deltas over that series:
+
+- **Cumulative** counters (a lifetime "used" total): spend = `used(now) − used(window start)`.
+- **Balance** values (a remaining balance that drops as you spend): spend = the sum of the per-step drops within the window; increases are treated as top-ups and excluded.
+
+The result is surfaced as a single `window_credit_spend` metric that tracks the selected window consistently across every credit provider, regardless of what its API exposes. When the observation history does not yet cover the full window (for example the daemon has only been running a day), the figure is shown with a `(since <date>)` marker so partial coverage is explicit rather than misleading.
+
+The series is retained for at least 35 days (so a 30-day window always has a left anchor) and thinned over time — full poll resolution for the last 48 hours, hourly beyond that, daily beyond a week.

@@ -64,6 +64,12 @@ Each poll (default every 30 seconds in daemon mode) issues several authenticated
 
 - Source: `/credits` JSON. Fields: `data.total_credits`, `data.total_usage`.
 - Transform: `Used = total_usage`, `Limit = total_credits`, `Remaining = Limit - Used`. Currency: USD.
+- `total_usage` is a **lifetime** cumulative counter, so the headline is tagged `· all-time` and the credit gauge shows lifetime drawdown of your purchased credits — it does not change with the dashboard's time window.
+
+### Windowed spend
+
+- Because `/credits` only reports lifetime totals, true spend within the selected window (1d / 7d / 30d) is derived by the daemon from its own `credit_balance` observations over time, surfaced as `window_credit_spend`. See [Time windows → Windowed spend for credit providers](../concepts/time-windows.md#windowed-spend-for-credit-providers).
+- This is daemon-only: in direct (no-daemon) mode there is no observation history, so only the lifetime headline and the provider's own daily/weekly/monthly buckets are shown.
 
 ### Daily / weekly / monthly usage
 
