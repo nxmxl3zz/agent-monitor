@@ -5,6 +5,27 @@ import (
 	"testing"
 )
 
+func TestValidateTemplate(t *testing.T) {
+	// Valid templates pass.
+	for _, ok := range []string{
+		"{tool:icon}",
+		"{tool:icon:brand} 5h {block_pct:pct:color} {today_cost:money}/today",
+		"plain text",
+	} {
+		if err := validateTemplate(ok); err != nil {
+			t.Errorf("validateTemplate(%q) = %v, want nil", ok, err)
+		}
+	}
+	// Empty is rejected.
+	if err := validateTemplate("   "); err == nil {
+		t.Error("validateTemplate(blank) should error")
+	}
+	// A malformed template (unterminated brace) is rejected.
+	if err := validateTemplate("{tool:icon"); err == nil {
+		t.Error("validateTemplate with an unterminated brace should error")
+	}
+}
+
 func TestLastStatusRoundTrip(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

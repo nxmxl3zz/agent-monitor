@@ -15,6 +15,22 @@ import (
 	"github.com/janekbaraniewski/openusage/internal/tmux"
 )
 
+// customPresetSentinel is the Preset-select value meaning "edit a template"
+// rather than use a named preset.
+const customPresetSentinel = "__custom__"
+
+// validateTemplate ensures a custom tmux format string parses, so the wizard
+// never saves a template that would break the status bar.
+func validateTemplate(s string) error {
+	if strings.TrimSpace(s) == "" {
+		return fmt.Errorf("template cannot be empty")
+	}
+	if _, err := tmux.Render(s, tmux.Context{ColorMode: tmux.ColorModeNone, Glyphs: tmux.GlyphTierUnicode}); err != nil {
+		return err
+	}
+	return nil
+}
+
 // runTmuxInstallWizard is the interactive front-end of `openusage tmux install`.
 // It collects position, preset, and icon preference in one small form, then
 // applies everything — writes the tmux.conf snippet, installs the icon font,
@@ -35,6 +51,15 @@ func runTmuxInstallWizard(version string) error {
 		}
 		return huh.NewOption(label, p.Name)
 	})
+	// Let power users start from a preset and edit the template interactively.
+	presetOpts = append(presetOpts, huh.NewOption("Custom — edit a template", customPresetSentinel))
+
+	// Prefill the custom editor with the default preset's format as a starting
+	// point so it is never an empty box.
+	customFormat := ""
+	if p, err := tmux.SamplePreset(tmux.DefaultPreset); err == nil {
+		customFormat = p.Format
+	}
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -49,7 +74,7 @@ func runTmuxInstallWizard(version string) error {
 				Value(&position),
 			huh.NewSelect[string]().
 				Title("Preset").
-				Description("The look of the segment. compact is the default.").
+				Description("The look of the segment. compact is the default; pick Custom to edit a template.").
 				Options(presetOpts...).
 				Value(&preset),
 			huh.NewSelect[string]().
@@ -61,13 +86,42 @@ func runTmuxInstallWizard(version string) error {
 				).
 				Value(&icons),
 		),
+		// Shown only when "Custom" is selected above.
+		huh.NewGroup(
+			huh.NewText().
+				Title("Custom template").
+				Description("Edit the format string. Variables: `openusage tmux variables`. Example: {tool:icon:brand} 5h {block_pct:pct:color} {today_cost:money}/today").
+				Lines(3).
+				Value(&customFormat).
+				Validate(validateTemplate),
+		).WithHideFunc(func() bool { return preset != customPresetSentinel }),
 	)
 	if err := form.Run(); err != nil {
 		return err
 	}
 
+	// Persist the template choice. A custom template is saved to
+	// settings.tmux.format, which overrides the preset at render time, so the
+	// installed snippet can keep using --preset. Choosing a named preset clears
+	// any previously-saved custom format so it actually takes effect.
+	chosenPreset := preset
+	if cfg, err := config.Load(); err == nil {
+		if preset == customPresetSentinel {
+			cfg.Tmux.Format = strings.TrimSpace(customFormat)
+			chosenPreset = tmux.DefaultPreset
+		} else {
+			cfg.Tmux.Format = ""
+		}
+		_ = config.Save(cfg)
+	} else if preset == customPresetSentinel {
+		// Could not persist the custom format; fall back to the default preset
+		// rather than silently writing a snippet that ignores the user's edit.
+		fmt.Fprintln(os.Stderr, "tmux: could not save the custom template; using the compact preset")
+		chosenPreset = tmux.DefaultPreset
+	}
+
 	// Apply: write the tmux.conf snippet.
-	opts := tmux.InstallOptions{Write: true, Position: position, Preset: preset, Version: version}
+	opts := tmux.InstallOptions{Write: true, Position: position, Preset: chosenPreset, Version: version}
 	path, err := tmux.Install(os.Stdout, opts)
 	if err != nil {
 		return err
