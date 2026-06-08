@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -119,21 +120,89 @@ func runTmuxRender(c *cobra.Command, f *tmuxFlags) error {
 	ctx, cancel := context.WithTimeout(c.Context(), opts.maxRuntime)
 	defer cancel()
 
-	rendered, detected, err := buildAndRender(ctx, opts)
+	rendered, bctx, detected, err := buildAndRender(ctx, opts)
 	if err != nil {
-		// Never block tmux: log to stderr and emit a placeholder so the
-		// status bar still ticks.
+		// Never block tmux. Prefer the last good status (so a transient daemon
+		// hiccup does not blank the bar); fall back to "?" only if there is no
+		// recent cache.
+		if last, ok := readLastStatus(); ok {
+			fmt.Fprintln(os.Stdout, last)
+			return nil
+		}
 		fmt.Fprintf(os.Stderr, "tmux: %v\n", err)
 		fmt.Fprintln(os.Stdout, "?")
 		return nil
 	}
 
 	if opts.jsonOut {
-		payload := tmux.BuildJSON(opts.buildCtx, rendered, detected)
+		payload := tmux.BuildJSON(bctx, rendered, detected)
 		return tmux.WriteJSON(os.Stdout, payload)
 	}
+
+	// Anti-flicker: when the snapshot read was degraded (e.g. the daemon read
+	// timed out and there was no time to fall back), reuse the last good
+	// status instead of flashing a blank/zeroed segment. Only successful
+	// renders update the cache.
+	if bctx.Degraded {
+		if last, ok := readLastStatus(); ok {
+			fmt.Fprintln(os.Stdout, last)
+			return nil
+		}
+	} else if strings.TrimSpace(rendered) != "" {
+		writeLastStatus(rendered)
+	}
+
 	fmt.Fprintln(os.Stdout, rendered)
 	return nil
+}
+
+// lastStatusTTL caps how stale a cached status may be before it is treated as
+// missing. Long enough to ride out daemon restarts, short enough that a truly
+// idle machine eventually shows live (possibly empty) state.
+const lastStatusTTL = 10 * time.Minute
+
+// lastStatusPath is the cache file for the most recent successful render.
+func lastStatusPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".cache", "openusage", "tmux-laststatus")
+}
+
+// readLastStatus returns the last good rendered status if it exists and is
+// within lastStatusTTL.
+func readLastStatus() (string, bool) {
+	path := lastStatusPath()
+	if path == "" {
+		return "", false
+	}
+	info, err := os.Stat(path)
+	if err != nil || time.Since(info.ModTime()) > lastStatusTTL {
+		return "", false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	s := strings.TrimRight(string(data), "\n")
+	if strings.TrimSpace(s) == "" {
+		return "", false
+	}
+	return s, true
+}
+
+// writeLastStatus records a successful render for reuse on the next degraded
+// read. Failures are silent: the cache is a best-effort flicker guard.
+func writeLastStatus(rendered string) {
+	path := lastStatusPath()
+	if path == "" {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return
+	}
+	_ = os.WriteFile(path, []byte(rendered), 0o600)
 }
 
 // tmuxOptions is the post-resolution form of tmuxFlags; one struct that the
@@ -152,7 +221,6 @@ type tmuxOptions struct {
 	raw        bool
 	jsonOut    bool
 	noCache    bool
-	buildCtx   tmux.Context // populated by buildAndRender for JSON output
 	cfg        config.TmuxConfig
 }
 
@@ -260,7 +328,7 @@ func themeColorsFromTUI(t tui.Theme) tmux.ThemeColors {
 // buildAndRender resolves the active provider, builds the formatter context,
 // and renders the chosen template. Returns the rendered string, the
 // detection result (so JSON output can echo it), and any non-fatal error.
-func buildAndRender(ctx context.Context, opts tmuxOptions) (string, *tmux.DetectResult, error) {
+func buildAndRender(ctx context.Context, opts tmuxOptions) (string, tmux.Context, *tmux.DetectResult, error) {
 	res := tmux.Detect(tmux.DetectOptions{
 		Strategy:      opts.strategy,
 		PriorityOrder: opts.cfg.PriorityOrder,
@@ -271,7 +339,8 @@ func buildAndRender(ctx context.Context, opts tmuxOptions) (string, *tmux.Detect
 
 	bctx, err := tmux.BuildContext(ctx, tmux.BuildOptions{
 		Source:               opts.source,
-		Provider:             firstNonEmpty(opts.provider, res.Primary),
+		Provider:             opts.provider,
+		Candidates:           candidatesFrom(res),
 		Theme:                opts.theme,
 		ColorMode:            opts.colorMode,
 		Glyphs:               opts.glyphs,
@@ -281,20 +350,31 @@ func buildAndRender(ctx context.Context, opts tmuxOptions) (string, *tmux.Detect
 		OfflineClaudePricing: true,
 	})
 	if err != nil {
-		return "", &res, err
+		return "", bctx, &res, err
 	}
 
 	template, err := resolveTemplate(opts)
 	if err != nil {
-		return "", &res, err
+		return "", bctx, &res, err
 	}
 
 	rendered, err := tmux.Render(template, bctx)
 	if err != nil {
-		return "", &res, err
+		return "", bctx, &res, err
 	}
-	opts.buildCtx = bctx
-	return rendered, &res, nil
+	return rendered, bctx, &res, nil
+}
+
+// candidatesFrom flattens a detection result into the recency-ordered
+// candidate list BuildContext walks when no provider is pinned.
+func candidatesFrom(res tmux.DetectResult) []string {
+	if len(res.Ordered) > 0 {
+		return res.Ordered
+	}
+	if res.Primary != "" {
+		return []string{res.Primary}
+	}
+	return nil
 }
 
 // resolveTemplate decides which template the renderer should evaluate. It is
@@ -525,7 +605,7 @@ func newTmuxPreviewCommand(parent *tmuxFlags) *cobra.Command {
 			opts := resolveTmuxOptions(c, f, cfg)
 			ctx, cancel := context.WithTimeout(c.Context(), opts.maxRuntime)
 			defer cancel()
-			rendered, _, err := buildAndRender(ctx, opts)
+			rendered, _, _, err := buildAndRender(ctx, opts)
 			if err != nil {
 				return err
 			}

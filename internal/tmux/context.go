@@ -52,13 +52,53 @@ type Context struct {
 	// formatter passes them to color/glyph helpers.
 	ColorMode ColorMode
 	Glyphs    GlyphTier
+	// Degraded is true when the snapshot collect failed (e.g. the daemon read
+	// timed out). The render-time caller uses it to reuse the last-good status
+	// instead of emitting a blank/"?" segment, which is the main flicker source.
+	Degraded bool
+}
+
+// setActive points the context at a resolved snapshot.
+func (c *Context) setActive(s core.UsageSnapshot) {
+	c.Snapshot = s
+	c.Provider = s.ProviderID
+	c.Account = s.AccountID
+}
+
+// snapshotHasPrimaryMetric reports whether a snapshot exposes at least one of
+// the metrics the default segments render (today cost, billing-block percent,
+// plan percent, block cost). Synthetic-only aliases (keyed with "_") are
+// ignored here because they are not populated until after selection. This is
+// the gate that keeps active-tool selection from landing on a provider that
+// would render an icon with no numbers next to it.
+func snapshotHasPrimaryMetric(snap core.UsageSnapshot) bool {
+	if snap.ProviderID == "" {
+		return false
+	}
+	provider := strings.ToLower(snap.ProviderID)
+	for _, alias := range []string{"today_cost", "block_pct", "plan_pct", "block_cost"} {
+		key := resolveAlias(alias, provider)
+		if key == "" || strings.HasPrefix(key, "_") {
+			continue
+		}
+		if _, ok := metricUsedString(snap, key); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildOptions configures BuildContext. Source and Provider mirror the user
 // flags; Now defaults to time.Now() when zero so tests can inject a clock.
 type BuildOptions struct {
-	Source     export.Source
-	Provider   string
+	Source export.Source
+	// Provider pins a specific provider (from --provider / settings). When
+	// set it always wins over Candidates.
+	Provider string
+	// Candidates is the recency-ordered active-tool detection result. When no
+	// provider is pinned, BuildContext walks these and picks the first with a
+	// primary metric to show.
+	Candidates []string
 	Theme      ThemeColors
 	ColorMode  ColorMode
 	Glyphs     GlyphTier
@@ -87,10 +127,12 @@ func BuildContext(ctx context.Context, opts BuildOptions) (Context, error) {
 	}
 
 	snaps, _, err := export.Collect(ctx, opts.Source)
+	degraded := false
 	if err != nil {
-		// Don't fail the render: emit an empty context so the caller can
-		// degrade gracefully (e.g., render "?" placeholders).
+		// Don't fail the render: mark the context degraded so the caller can
+		// reuse the last-good status instead of flickering to a blank/"?".
 		snaps = nil
+		degraded = true
 	}
 
 	c := Context{
@@ -104,27 +146,64 @@ func BuildContext(ctx context.Context, opts BuildOptions) (Context, error) {
 		Now:          opts.Now,
 		ColorMode:    opts.ColorMode,
 		Glyphs:       opts.Glyphs,
+		Degraded:     degraded,
 	}
 
-	// Resolve the active snapshot. If the user pinned a provider, pick the
-	// first snapshot matching that ID; otherwise pick the first non-empty
-	// snapshot in the collected slice. Active-tool *detection* (recency,
-	// process, etc.) is wired in phase 2; this is the pinned fallback.
+	// Resolve the active snapshot.
+	//
+	//   - Pinned provider (--provider / settings.tmux.provider) always wins.
+	//   - Otherwise walk the detection candidates (recency order) and pick the
+	//     first one that actually has a primary metric to show. This is what
+	//     stops the segment flipping to a tool with no displayable data — e.g.
+	//     a background Ollama whose files were just touched would otherwise be
+	//     "most recent" and render an icon with blank numbers.
+	//   - Falls back to any snapshot with a primary metric, then the first
+	//     candidate present at all, then the first snapshot.
 	pinned := strings.ToLower(strings.TrimSpace(opts.Provider))
-	if pinned != "" {
+	switch {
+	case pinned != "":
 		for _, s := range snaps {
 			if strings.EqualFold(s.ProviderID, pinned) {
-				c.Snapshot = s
-				c.Provider = s.ProviderID
-				c.Account = s.AccountID
+				c.setActive(s)
 				break
+			}
+		}
+	default:
+		for _, cand := range opts.Candidates {
+			if c.Provider != "" {
+				break
+			}
+			for _, s := range snaps {
+				if strings.EqualFold(s.ProviderID, cand) && snapshotHasPrimaryMetric(s) {
+					c.setActive(s)
+					break
+				}
+			}
+		}
+		if c.Provider == "" {
+			for _, s := range snaps {
+				if snapshotHasPrimaryMetric(s) {
+					c.setActive(s)
+					break
+				}
+			}
+		}
+		if c.Provider == "" {
+			for _, cand := range opts.Candidates {
+				if c.Provider != "" {
+					break
+				}
+				for _, s := range snaps {
+					if strings.EqualFold(s.ProviderID, cand) {
+						c.setActive(s)
+						break
+					}
+				}
 			}
 		}
 	}
 	if c.Provider == "" && len(snaps) > 0 {
-		c.Snapshot = snaps[0]
-		c.Provider = snaps[0].ProviderID
-		c.Account = snaps[0].AccountID
+		c.setActive(snaps[0])
 	}
 
 	// Derive Claude Code synthetics (block + context window) from the local

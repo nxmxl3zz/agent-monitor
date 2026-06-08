@@ -5,6 +5,29 @@ import (
 	"testing"
 )
 
+func TestLastStatusRoundTrip(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	if _, ok := readLastStatus(); ok {
+		t.Fatal("expected no cached status in a fresh HOME")
+	}
+
+	writeLastStatus("🤖 5h 15% $6.79/today")
+	got, ok := readLastStatus()
+	if !ok {
+		t.Fatal("expected a cached status after write")
+	}
+	if got != "🤖 5h 15% $6.79/today" {
+		t.Fatalf("round-trip mismatch: %q", got)
+	}
+
+	// A blank render must not be treated as a usable cached status.
+	writeLastStatus("   ")
+	if _, ok := readLastStatus(); ok {
+		t.Fatal("blank status should not count as a cache hit")
+	}
+}
+
 func TestNewTmuxCommandHasSubcommands(t *testing.T) {
 	cmd := newTmuxCommand()
 	want := []string{"install", "uninstall", "presets", "variables", "doctor", "preview", "watch"}

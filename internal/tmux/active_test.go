@@ -220,7 +220,7 @@ func TestDetectCacheRoundTrip(t *testing.T) {
 	// cache writes by design (it is already O(0)); manually exercise the
 	// cache helpers to verify the round-trip works.
 	writeCache(cachePath, DetectResult{Primary: "codex", Ordered: []string{"codex"}, Source: "recency"}, now)
-	cached, ok := readCache(cachePath, now)
+	cached, ok := readCache(cachePath, now, defaultCacheTTL)
 	if !ok {
 		t.Fatalf("expected cache hit")
 	}
@@ -229,7 +229,7 @@ func TestDetectCacheRoundTrip(t *testing.T) {
 	}
 
 	// Past TTL the cache should miss.
-	_, ok = readCache(cachePath, now.Add(10*time.Second))
+	_, ok = readCache(cachePath, now.Add(defaultCacheTTL+time.Second), defaultCacheTTL)
 	if ok {
 		t.Fatalf("cache should have expired after TTL")
 	}

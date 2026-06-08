@@ -84,7 +84,7 @@ The bundled presets cover the common shapes. List them with `openusage tmux pres
 | `ascii-safe` | ascii | `[CLAUDE_CODE] $4.21 block:47% burn:$1.20/hr ctx:42%` |
 | `burn` | unicode | `🔥 $1.20/hr → $9.40 EOB` |
 | `claude-focused` | unicode | `🤖 Opus 4.7 $3.40 block (2h17m) 🔥 $1.20/hr 🧠 42%` |
-| `compact` | unicode | `🤖 47% $4.21` |
+| `compact` | unicode | `🤖 5h 15% $6.79/today` |
 | `cost-only` | ascii | `$4.21` |
 | `emoji-rich` | unicode | `🤖 CLAUDE_CODE \| 💰 $4.21 \| 📅 42 req \| 🔥 $1.20/hr \| 🧠 42%` |
 | `minimal` | ascii | `claude_code $4.21` |
@@ -305,8 +305,23 @@ Default: `recency,priority`. Examples:
 ```bash
 openusage tmux --strategy process,priority      # process first, fall back to priority
 openusage tmux --strategy multi --preset multi-tool
-openusage tmux --no-cache                       # skip the 2-second detection cache
+openusage tmux --no-cache                       # skip the detection cache
 ```
+
+The detected tool is cached for ~15 seconds so the segment stays stable across
+status refreshes instead of re-detecting (and visibly flipping) on every tick.
+When **not** pinned, detection also skips any tool that has no metric to show —
+so a background Ollama touching its files will not hijack the segment and leave
+you with an icon and blank numbers. Pin a provider (`--provider` /
+`settings.tmux.provider`) when you want one tool's metrics, always.
+
+### Why the value sometimes looks "stale" for a moment
+
+If the snapshot read is degraded (for example the telemetry daemon is briefly
+unreachable), the renderer reuses the **last good** status instead of flashing
+a blank or zeroed segment. This is an intentional anti-flicker measure; the
+cached value is used for at most a few minutes before live (possibly empty)
+state shows through.
 
 ## Troubleshooting
 

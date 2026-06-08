@@ -77,6 +77,9 @@ type DetectOptions struct {
 	Now time.Time
 	// NoCache disables the on-disk cache.
 	NoCache bool
+	// CacheTTL overrides how long a cached detection is reused. Zero means
+	// defaultCacheTTL.
+	CacheTTL time.Duration
 	// CachePath overrides the default `~/.cache/openusage/tmux-active.json`.
 	// Mainly for tests.
 	CachePath string
@@ -100,7 +103,12 @@ type DetectResult struct {
 
 const (
 	defaultRecencyWindow = 4 * time.Hour
-	cacheTTL             = 2 * time.Second
+	// defaultCacheTTL is how long a detected active tool is reused before a
+	// fresh disk scan. It is deliberately longer than a typical tmux
+	// status-interval (5s) so the segment does not re-detect — and visibly
+	// flip between tools — on every render. Pinning a provider bypasses
+	// detection entirely. Override via DetectOptions.CacheTTL.
+	defaultCacheTTL = 15 * time.Second
 )
 
 // Detect runs the configured strategies in order and returns the first
@@ -131,8 +139,12 @@ func Detect(opts DetectOptions) DetectResult {
 	// Try the cache first when the strategy list reads from disk. The cache
 	// is a performance optimization for back-to-back tmux render calls and
 	// is bypassed when the user passed --no-cache.
+	ttl := opts.CacheTTL
+	if ttl <= 0 {
+		ttl = defaultCacheTTL
+	}
 	if !opts.NoCache {
-		if cached, ok := readCache(opts.CachePath, opts.Now); ok {
+		if cached, ok := readCache(opts.CachePath, opts.Now, ttl); ok {
 			return cached
 		}
 	}
@@ -404,7 +416,7 @@ func defaultCachePath() string {
 	return filepath.Join(home, ".cache", "openusage", "tmux-active.json")
 }
 
-func readCache(path string, now time.Time) (DetectResult, bool) {
+func readCache(path string, now time.Time, ttl time.Duration) (DetectResult, bool) {
 	if path == "" {
 		path = defaultCachePath()
 	}
@@ -419,7 +431,7 @@ func readCache(path string, now time.Time) (DetectResult, bool) {
 	if err := json.Unmarshal(data, &entry); err != nil {
 		return DetectResult{}, false
 	}
-	if now.Sub(entry.DetectedAt) > cacheTTL {
+	if now.Sub(entry.DetectedAt) > ttl {
 		return DetectResult{}, false
 	}
 	return DetectResult{
