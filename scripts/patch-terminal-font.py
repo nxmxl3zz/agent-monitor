@@ -17,7 +17,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from fontTools.ttLib import TTFont
-from fontTools.pens.boundsPen import ControlBoundsPen
+from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import RecordingPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
@@ -81,10 +81,10 @@ def choose_cap_height(font, upem):
 
 # Fraction of the base font ascender that the ink height should occupy, so
 # icons rise to (near) the top of the line.
-INK_FILL = 0.92
+INK_FILL = 0.98
 # Cap horizontal growth: tall logos may exceed the advance, but never by more
 # than this factor, to avoid heavy overlap into neighboring cells.
-MAX_WIDTH_FACTOR = 1.15
+MAX_WIDTH_FACTOR = 1.8
 
 
 def record_svg(ds):
@@ -107,7 +107,7 @@ def ink_transform(rec, ascent, advance):
 
     Returns ``(transform, scaled_w, scaled_h)``.
     """
-    bounds = ControlBoundsPen(None)
+    bounds = BoundsPen(None)
     rec.replay(bounds)
     if bounds.bounds is None:
         raise ValueError("empty outline")

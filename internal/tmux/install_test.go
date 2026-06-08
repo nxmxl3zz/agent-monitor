@@ -230,7 +230,7 @@ func TestBuildSnippetRightPrepends(t *testing.T) {
 		if strings.Contains(snip, "set -ga status-right") {
 			t.Fatalf("%s: still appends to status-right (far-right edge):\n%s", pos, snip)
 		}
-		if !strings.Contains(snip, "run-shell") || !strings.Contains(snip, `tmux set -g status-right "$seg $cur"`) {
+		if !strings.Contains(snip, "run-shell") || !strings.Contains(snip, `tmux set -g status-right "$seg │ $cur"`) {
 			t.Fatalf("%s: missing prepend run-shell line:\n%s", pos, snip)
 		}
 		// The idempotency guard must be present.

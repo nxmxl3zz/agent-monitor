@@ -46,7 +46,7 @@ import xml.etree.ElementTree as ET
 
 try:
     from fontTools.fontBuilder import FontBuilder
-    from fontTools.pens.boundsPen import ControlBoundsPen
+    from fontTools.pens.boundsPen import BoundsPen
     from fontTools.pens.cu2quPen import Cu2QuPen
     from fontTools.pens.recordingPen import RecordingPen
     from fontTools.pens.transformPen import TransformPen
@@ -72,9 +72,11 @@ OUTPUT_PATH = os.path.join(REPO_ROOT, "internal", "tmux", "assets", "openusage-i
 # SVG viewBox is always 24x24 for these icons.
 SVG_VIEWBOX = 24.0
 
-# Fraction of the em that the ink height should occupy. Leaves a small top and
-# bottom margin so glyphs do not visually touch the cell edges.
-INK_FILL = 0.92
+# Fraction of the em that the ink height should occupy. We strip ALL whitespace
+# around the icon (measuring the true ink bounds) and fill almost the entire em
+# so the glyph is as large as possible in the cell; a hair of margin (0.98)
+# keeps it from visually touching the very top/bottom edge.
+INK_FILL = 0.98
 
 NOTDEF = ".notdef"
 
@@ -119,9 +121,10 @@ def _build_glyph(svg_path: str, upem: int) -> "object":
     for d in ds:
         parse_path(d, rec)
 
-    # Measure the ink bbox in SVG coords (control-point bounds are sufficient
-    # and avoid pulling in a cython dependency for exact bezier extrema).
-    bounds = ControlBoundsPen(None)
+    # Measure the TRUE ink bbox in SVG coords (real bezier extrema, not just
+    # control points), so all surrounding whitespace is stripped and the glyph
+    # fills the cell as much as possible.
+    bounds = BoundsPen(None)
     rec.replay(bounds)
     if bounds.bounds is None:
         raise ValueError(f"empty outline in {svg_path}")

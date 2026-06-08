@@ -162,8 +162,12 @@ func BuildSnippet(opts InstallOptions) string {
 // segments for live rendering.
 func prependStatusRight(binary, preset string) string {
 	inner := fmt.Sprintf("(%s tmux --preset %s)", binary, preset)
+	// A separator visually divides the openusage segment from the user's
+	// existing right-side segments (clock, battery, …). " │ " is a plain
+	// box-drawing bar — no "#[" styling, so it carries no tmux-format meaning
+	// and inherits the surrounding colors.
 	return fmt.Sprintf(
-		`run-shell -b 'seg="$(printf "#%%s" "%s")"; cur="$(tmux show -gqv status-right)"; case "$cur" in *"$seg"*) exit 0 ;; *) tmux set -g status-right "$seg $cur" ;; esac'`+"\n",
+		`run-shell -b 'seg="$(printf "#%%s" "%s")"; cur="$(tmux show -gqv status-right)"; case "$cur" in *"$seg"*) exit 0 ;; *) tmux set -g status-right "$seg │ $cur" ;; esac'`+"\n",
 		inner,
 	)
 }
