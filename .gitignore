@@ -62,3 +62,7 @@ perplexity-cookies.txt
 pplx-cookies.txt
 # Local drafts / scratch — never commit
 drafts/
+
+# Python bytecode (font scripts)
+scripts/__pycache__/
+__pycache__/

@@ -42,16 +42,22 @@ from __future__ import annotations
 import json
 import os
 import sys
-import xml.etree.ElementTree as ET
+
+# Make the shared helper module importable regardless of cwd.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from fontTools.fontBuilder import FontBuilder
-    from fontTools.pens.boundsPen import BoundsPen
-    from fontTools.pens.cu2quPen import Cu2QuPen
-    from fontTools.pens.recordingPen import RecordingPen
-    from fontTools.pens.transformPen import TransformPen
     from fontTools.pens.ttGlyphPen import TTGlyphPen
-    from fontTools.svgLib.path import parse_path
+
+    from _iconfont_common import (
+        INK_FILL,
+        SVG_VIEWBOX,
+        extract_path_ds,
+        ink_transform,
+        record_svg,
+        replay_quadratic,
+    )
 except ImportError as exc:  # pragma: no cover - environment guard
     sys.stderr.write(
         "error: fonttools is not installed. Run this with the prepared venv:\n"
@@ -69,39 +75,9 @@ MANIFEST_PATH = os.path.join(REPO_ROOT, "internal", "tmux", "assets", "icons.jso
 ICONS_DIR = os.path.join(REPO_ROOT, "website", "public", "icons")
 OUTPUT_PATH = os.path.join(REPO_ROOT, "internal", "tmux", "assets", "openusage-icons.ttf")
 
-# SVG viewBox is always 24x24 for these icons.
-SVG_VIEWBOX = 24.0
-
-# Fraction of the em that the ink height should occupy. We strip ALL whitespace
-# around the icon (measuring the true ink bounds) and fill almost the entire em
-# so the glyph is as large as possible in the cell; a hair of margin (0.98)
-# keeps it from visually touching the very top/bottom edge.
-INK_FILL = 0.98
+# SVG_VIEWBOX and INK_FILL come from _iconfont_common.
 
 NOTDEF = ".notdef"
-
-SVG_NS = "http://www.w3.org/2000/svg"
-
-
-def _path_ds(svg_path: str) -> list[str]:
-    """Return the ``d`` attribute of every ``<path>`` element in an SVG file.
-
-    Handles documents with and without the SVG namespace declared.
-    """
-    tree = ET.parse(svg_path)
-    root = tree.getroot()
-
-    # Match <path> with or without a namespace prefix.
-    ds: list[str] = []
-    for elem in root.iter():
-        tag = elem.tag
-        if isinstance(tag, str):
-            local = tag.rsplit("}", 1)[-1]  # strip any {namespace}
-            if local == "path":
-                d = elem.get("d")
-                if d:
-                    ds.append(d)
-    return ds
 
 
 def _build_glyph(svg_path: str, upem: int) -> "object":
@@ -112,61 +88,22 @@ def _build_glyph(svg_path: str, upem: int) -> "object":
     centered inside the em box. The Y axis is flipped (SVG is y-down) and the
     result is converted to quadratics for the ``glyf`` table.
     """
-    ds = _path_ds(svg_path)
+    ds = extract_path_ds(svg_path)
     if not ds:
         raise ValueError(f"no <path> elements found in {svg_path}")
 
     # Record the raw SVG outline once so we can both measure and replay it.
-    rec = RecordingPen()
-    for d in ds:
-        parse_path(d, rec)
+    rec = record_svg(ds)
 
-    # Measure the TRUE ink bbox in SVG coords (real bezier extrema, not just
-    # control points), so all surrounding whitespace is stripped and the glyph
-    # fills the cell as much as possible.
-    bounds = BoundsPen(None)
-    rec.replay(bounds)
-    if bounds.bounds is None:
-        raise ValueError(f"empty outline in {svg_path}")
-    xmin, ymin, xmax, ymax = bounds.bounds
-    ink_w = xmax - xmin
-    ink_h = ymax - ymin
-    if ink_h <= 0 or ink_w <= 0:
-        raise ValueError(f"degenerate ink bbox in {svg_path}")
-
-    # Uniform scale so the ink HEIGHT maps to INK_FILL * upem, preserving aspect
-    # ratio.
-    scale = (INK_FILL * upem) / ink_h
-
-    # Center the scaled ink inside the em box [0, upem] both axes.
-    scaled_w = ink_w * scale
-    scaled_h = ink_h * scale
-    x_pad = (upem - scaled_w) / 2.0
-    y_pad = (upem - scaled_h) / 2.0
-
-    # Affine mapping svg(x, y) -> font(X, Y), with Y flipped (svg y is down):
-    #   X = scale*(x - xmin) + x_pad
-    #   Y = scale*(ymax - y) + y_pad
-    # In (a, b, c, d, e, f) form (X = a*x + c*y + e ; Y = b*x + d*y + f):
-    #   a = scale, c = 0, e = x_pad - scale*xmin
-    #   b = 0, d = -scale, f = y_pad + scale*ymax
-    transform = (
-        scale,
-        0.0,
-        0.0,
-        -scale,
-        x_pad - scale * xmin,
-        y_pad + scale * ymax,
+    # Scale the ink HEIGHT to INK_FILL*upem and center inside the em box.
+    transform, _scaled_w, _scaled_h = ink_transform(
+        rec,
+        target_h=INK_FILL * upem,
+        box_w=upem,
+        box_h=upem,
+        src_label=svg_path,
     )
-
-    pen = TTGlyphPen(None)
-    # SVG paths use cubic beziers; TrueType glyf needs quadratics, so convert
-    # via Cu2QuPen. Tolerance is in font units (~1 unit at upem=1000 is well
-    # below pixel-perceptible at icon sizes).
-    cu2qu = Cu2QuPen(pen, max_err=1.0, reverse_direction=True)
-    tpen = TransformPen(cu2qu, transform)
-    rec.replay(tpen)
-    return pen.glyph()
+    return replay_quadratic(rec, transform)
 
 
 def _notdef_glyph(upem: int) -> "object":
@@ -225,7 +162,7 @@ def main() -> int:
             missing.append(f"{provider} -> {svg_path}")
             continue
 
-        ds = _path_ds(svg_path)
+        ds = extract_path_ds(svg_path)
         if len(ds) > 1:
             multipath.append(f"{provider} ({svg_name}.svg, {len(ds)} paths)")
 
