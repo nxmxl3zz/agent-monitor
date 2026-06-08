@@ -37,9 +37,10 @@ from fontTools.svgLib.path import parse_path
 
 # Fraction of the line height (em or ascender) that the ink height should
 # occupy. We strip ALL whitespace around the icon (measuring true ink bounds)
-# and fill almost the entire box so the glyph is as large as possible; a hair
-# of margin keeps it from visually touching the very top/bottom edge.
-INK_FILL = 0.98
+# and fill the entire box so the glyph is as large as the cell allows. The
+# target box is the FULL line (ascent + |descent|), not just the ascender, so
+# icons fill the cell top-to-bottom and sit centered rather than floating high.
+INK_FILL = 1.0
 
 # The provider SVGs always use viewBox="0 0 24 24".
 SVG_VIEWBOX = 24.0
@@ -104,13 +105,18 @@ def measure_ink_bbox(rec, src_label=""):
     return xmin, ymin, xmax, ymax
 
 
-def ink_transform(rec, *, target_h, box_w, box_h, max_w=None, src_label=""):
+def ink_transform(rec, *, target_h, box_w, box_h, box_y0=0.0, max_w=None, src_label=""):
     """Build the y-flip + scale-to-fill-height + center transform.
 
     The ink bbox (SVG coords, y-down) is measured, then scaled uniformly so the
     ink HEIGHT maps to *target_h*. If *max_w* is given, the scale is clamped so
     the ink WIDTH does not exceed it. The glyph is then centered horizontally on
-    *box_w* and vertically on *box_h*.
+    *box_w* and vertically inside the band ``[box_y0, box_y0 + box_h]``.
+
+    *box_y0* is the bottom edge of the vertical band in font units. Pass the font
+    descent (negative) with ``box_h = ascent - descent`` to center the glyph on
+    the whole line (descent..ascent) so it fills the cell top-to-bottom instead
+    of floating in the ascender region.
 
     Returns ``(transform, scaled_w, scaled_h)`` where ``transform`` is an
     ``(a, b, c, d, e, f)`` affine tuple.
@@ -127,9 +133,10 @@ def ink_transform(rec, *, target_h, box_w, box_h, max_w=None, src_label=""):
 
     scaled_w = ink_w * scale
     scaled_h = ink_h * scale
-    # Center the scaled ink inside the box on both axes.
+    # Center the scaled ink: horizontally on box_w, vertically inside the band
+    # whose bottom edge is box_y0 and height is box_h.
     x_pad = (box_w - scaled_w) / 2.0
-    y_pad = (box_h - scaled_h) / 2.0
+    y_pad = box_y0 + (box_h - scaled_h) / 2.0
 
     # Affine mapping svg(x, y) -> font(X, Y), with Y flipped (svg y is down):
     #   X = scale*(x - xmin) + x_pad

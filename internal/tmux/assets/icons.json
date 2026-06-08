@@ -5,7 +5,7 @@
   "upem": 1000,
   "comment": "Source of truth for the custom provider-icon font. Both the Go renderer (customfont glyph tier) and scripts/gen-icon-font.py read this file. 'svg' is the basename under website/public/icons/<svg>.svg (monochrome variant). 'codepoint' is a Private Use Area hex codepoint. Providers without an entry fall back to the unicode glyph tier.",
   "glyphs": [
-    { "provider": "claude_code",   "svg": "claudecode",   "codepoint": "E900" },
+    { "provider": "claude_code",   "svg": "claude",       "codepoint": "E900" },
     { "provider": "anthropic",     "svg": "anthropic",     "codepoint": "E901" },
     { "provider": "codex",         "svg": "codex",         "codepoint": "E902" },
     { "provider": "openai",        "svg": "openai",        "codepoint": "E903" },

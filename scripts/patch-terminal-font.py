@@ -192,10 +192,12 @@ def main():
     upem = font["head"].unitsPerEm
     advance = choose_advance(font, upem)
     # Icons are scaled per-glyph by their ink bbox so they fill the line height.
-    # Target ink height is INK_FILL of the base font ascender, and each glyph is
-    # centered vertically on the ascender, so icons rise to (near) the top of
-    # the line ("full character height").
+    # The target band is the WHOLE line (ascent down to descent), and each glyph
+    # is centered vertically in that band, so icons fill the cell top-to-bottom
+    # and sit centered rather than floating in the ascender region.
     ascent = font["hhea"].ascent
+    descent = font["hhea"].descent  # negative
+    line_h = ascent - descent
 
     with open(args.manifest) as fh:
         manifest = json.load(fh)
@@ -226,9 +228,10 @@ def main():
         try:
             transform, scaled_w, scaled_h = ink_transform(
                 rec,
-                target_h=INK_FILL * ascent,
+                target_h=INK_FILL * line_h,
                 box_w=advance,
-                box_h=ascent,
+                box_h=line_h,
+                box_y0=descent,
                 max_w=advance * MAX_WIDTH_FACTOR,
                 src_label=src_label,
             )
@@ -262,13 +265,15 @@ def main():
     font.save(args.out)
     size = os.path.getsize(args.out)
 
-    target_h = INK_FILL * ascent
+    target_h = INK_FILL * line_h
     print("=== patch-terminal-font summary ===")
     print("base format:        %s" % fmt)
     print("upem:               %d" % upem)
     print("advance used:       %d" % advance)
     print("base ascender:      %d" % ascent)
-    print("target ink height:  %.0f (%.0f%% of ascender)" % (target_h, INK_FILL * 100))
+    print("base descender:     %d" % descent)
+    print("line height:        %d (ascent - descent)" % line_h)
+    print("target ink height:  %.0f (%.0f%% of line height)" % (target_h, INK_FILL * 100))
     print("original glyphs:    %d" % orig_glyph_count)
     print("glyphs added:       %d" % added)
     print("output:             %s (%d bytes)" % (args.out, size))
