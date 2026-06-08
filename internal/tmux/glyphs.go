@@ -162,6 +162,21 @@ var providerIcons = map[GlyphTier]map[string]string{
 		"alibaba_cloud": "[qwen]",
 		"zai":           "[zai]",
 		"moonshot":      "[kimi]",
+		"amp":           "[amp]",
+		"goose":         "[goose]",
+		"hermes":        "[hermes]",
+		"kilo_code":     "[kilo]",
+		"kimi_cli":      "[kimi]",
+		"kiro_cli":      "[kiro]",
+		"openclaw":      "[claw]",
+		"qwen_cli":      "[qwen]",
+		"roocode":       "[roo]",
+		"zed":           "[zed]",
+		"crush":         "[crush]",
+		"droid":         "[droid]",
+		"codebuff":      "[buff]",
+		"mux":           "[mux]",
+		"pi":            "[pi]",
 	},
 	GlyphTierUnicode: {
 		"*":             "✨", // sparkles
@@ -185,6 +200,21 @@ var providerIcons = map[GlyphTier]map[string]string{
 		"alibaba_cloud": "云",
 		"zai":           "✦",
 		"moonshot":      "\U0001F319", // crescent moon
+		"amp":           "\U0001F50C", // electric plug
+		"goose":         "\U0001FABF", // goose
+		"hermes":        "\U0001FAB6", // feather (winged)
+		"kilo_code":     "\U0001F9E9", // puzzle piece
+		"kimi_cli":      "\U0001F31B", // first-quarter moon
+		"kiro_cli":      "\U0001F537", // blue diamond
+		"openclaw":      "\U0001F99E", // claw (lobster)
+		"qwen_cli":      "\U0001F310", // globe
+		"roocode":       "\U0001F998", // kangaroo (Roo)
+		"zed":           "✎",          // pencil (editor)
+		"crush":         "\U0001F496", // sparkling heart
+		"droid":         "\U0001F9BE", // mechanical arm
+		"codebuff":      "\U0001F9AC", // bison (buff)
+		"mux":           "⇄",          // multiplexer
+		"pi":            "π",
 	},
 	GlyphTierNerdfont: {
 		"*":             "", // nf-fa-rocket

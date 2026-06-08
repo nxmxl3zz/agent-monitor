@@ -1,7 +1,7 @@
 {
   "family": "OpenUsage Icons",
   "fileName": "openusage-icons.ttf",
-  "version": "1.0",
+  "version": "1.1",
   "upem": 1000,
   "comment": "Source of truth for the custom provider-icon font. Both the Go renderer (customfont glyph tier) and scripts/gen-icon-font.py read this file. 'svg' is the basename under website/public/icons/<svg>.svg (monochrome variant). 'codepoint' is a Private Use Area hex codepoint. Providers without an entry fall back to the unicode glyph tier.",
   "glyphs": [
@@ -23,6 +23,16 @@
     { "provider": "perplexity",    "svg": "perplexity",    "codepoint": "E90F" },
     { "provider": "alibaba_cloud", "svg": "alibabacloud",  "codepoint": "E910" },
     { "provider": "zai",           "svg": "zai",           "codepoint": "E911" },
-    { "provider": "moonshot",      "svg": "moonshot",      "codepoint": "E912" }
+    { "provider": "moonshot",      "svg": "moonshot",      "codepoint": "E912" },
+    { "provider": "amp",           "svg": "amp",           "codepoint": "E913" },
+    { "provider": "goose",         "svg": "goose",         "codepoint": "E914" },
+    { "provider": "hermes",        "svg": "hermes",        "codepoint": "E915" },
+    { "provider": "kilo_code",     "svg": "kilocode",      "codepoint": "E916" },
+    { "provider": "kimi_cli",      "svg": "kimi",          "codepoint": "E917" },
+    { "provider": "kiro_cli",      "svg": "kiro",          "codepoint": "E918" },
+    { "provider": "openclaw",      "svg": "openclaw",      "codepoint": "E919" },
+    { "provider": "qwen_cli",      "svg": "qwen",          "codepoint": "E91A" },
+    { "provider": "roocode",       "svg": "roocode",       "codepoint": "E91B" },
+    { "provider": "zed",           "svg": "zed",           "codepoint": "E91C" }
   ]
 }
