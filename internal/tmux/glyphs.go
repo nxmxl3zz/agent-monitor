@@ -121,6 +121,29 @@ func CustomFontProviders() []string {
 	return out
 }
 
+// IconCodepointRange returns the lowest and highest Private Use Area codepoints
+// used by the bundled icon font. Terminal fallback config (e.g. kitty's
+// symbol_map) needs this range. Returns (0,0) if the manifest is empty.
+func IconCodepointRange() (lo, hi rune) {
+	customFontOnce.Do(loadCustomFontMap)
+	first := true
+	for _, g := range customFontMap {
+		rs := []rune(g)
+		if len(rs) == 0 {
+			continue
+		}
+		r := rs[0]
+		if first || r < lo {
+			lo = r
+		}
+		if first || r > hi {
+			hi = r
+		}
+		first = false
+	}
+	return lo, hi
+}
+
 // providerIcons maps provider IDs to their per-tier glyph. The fallback in
 // each tier is keyed by "*" and is used when a provider has no entry.
 var providerIcons = map[GlyphTier]map[string]string{

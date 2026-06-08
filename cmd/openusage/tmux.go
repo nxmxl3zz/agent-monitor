@@ -149,6 +149,40 @@ the unicode emoji, and providers fall back further to ASCII labels with
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
+		Use:   "setup",
+		Short: "Auto-configure your terminal(s) to render the provider icons",
+		Long: `Configure detected terminals to use the bundled icon font for the icon
+codepoints, the preferred way (per-range fallback — your main font is left
+untouched). Works for kitty, Ghostty, and WezTerm. iTerm2 / Terminal.app have
+no per-range fallback; for those, use ` + "`openusage tmux font patch`" + `.`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			// The fallback only works if the font is installed, so ensure it.
+			if !tmux.FontInstalled() {
+				if _, err := tmux.InstallFont(); err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stdout, "installed %s\n", tmux.IconFontFamily())
+			}
+			results := tmux.SetupTerminalFallback()
+			if len(results) == 0 {
+				fmt.Fprintln(os.Stdout, "No supported terminals detected. Supported: kitty, Ghostty, WezTerm (per-range fallback); iTerm2/Terminal.app via `font patch`.")
+				return nil
+			}
+			for _, r := range results {
+				switch r.Action {
+				case "configured":
+					fmt.Fprintf(os.Stdout, "✓ %s: %s\n  %s\n", r.Terminal, r.Path, r.Message)
+				case "manual":
+					fmt.Fprintf(os.Stdout, "• %s (manual step):\n  %s\n", r.Terminal, r.Message)
+				case "patch":
+					fmt.Fprintf(os.Stdout, "• %s: %s\n", r.Terminal, r.Message)
+				}
+			}
+			fmt.Fprintln(os.Stdout, "\nRestart the affected terminals to load the font.")
+			return nil
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "status",
 		Short: "Show whether the icon font is installed and up to date",
 		RunE: func(_ *cobra.Command, _ []string) error {
