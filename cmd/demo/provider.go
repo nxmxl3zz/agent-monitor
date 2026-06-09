@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -188,7 +189,139 @@ func scopeSnapshotToWindow(snap core.UsageSnapshot, window core.TimeWindow) core
 		metrics["window_requests"] = core.Metric{Used: core.Float64Ptr(v), Unit: "requests", Window: label}
 	}
 	snap.Metrics = metrics
+
+	// Narrow windows realistically touch fewer tools, so trim the long-tail
+	// breakdown entities; this also keeps the detail view to a single screen.
+	pruneBreakdownsForWindow(&snap, window)
 	return snap
+}
+
+// keepEntities is the max number of breakdown entities (models, projects,
+// providers, languages) to show for a window. 0 means keep all.
+func keepEntities(w core.TimeWindow) int {
+	switch w {
+	case core.TimeWindow1d:
+		return 3
+	case core.TimeWindow3d:
+		return 4
+	case core.TimeWindow7d:
+		return 5
+	default:
+		return 0 // 30d / all: keep everything
+	}
+}
+
+// breakdownSuffixes are the metric-key suffixes that mark a per-entity breakdown
+// value, longest first so matchSuffix is greedy (e.g. "_cost_usd" before
+// "_cost", "_requests_today" before "_requests").
+var breakdownSuffixes = []string{
+	"_requests_today", "_completion_tokens", "_prompt_tokens",
+	"_input_tokens", "_output_tokens", "_total_tokens",
+	"_byok_cost", "_cost_usd", "_requests", "_tokens", "_cost",
+}
+
+func matchSuffix(key string) string {
+	for _, s := range breakdownSuffixes {
+		if strings.HasSuffix(key, s) {
+			return s
+		}
+	}
+	return ""
+}
+
+// pruneBreakdownsForWindow drops the lowest-activity breakdown entities so a
+// narrow window shows fewer rows. Entities are ranked by cost (entities with a
+// cost metric always outrank those without).
+func pruneBreakdownsForWindow(snap *core.UsageSnapshot, window core.TimeWindow) {
+	keep := keepEntities(window)
+	if keep <= 0 {
+		return
+	}
+	for _, prefix := range []string{"model_", "client_", "provider_"} {
+		for e := range pruneEntityMetrics(snap.Metrics, prefix, keep) {
+			// Drop the matching daily series so trends/"N more" stay consistent.
+			delete(snap.DailySeries, "tokens_"+prefix+e)
+			delete(snap.DailySeries, "usage_"+prefix+e)
+		}
+	}
+	pruneFlatMetrics(snap.Metrics, "lang_", keep)
+}
+
+// pruneEntityMetrics keeps the top `keep` entities under `prefix` (by cost) and
+// deletes the rest's metrics, returning the set of dropped entity names.
+func pruneEntityMetrics(metrics map[string]core.Metric, prefix string, keep int) map[string]bool {
+	keysByEntity := map[string][]string{}
+	cost := map[string]float64{}
+	alt := map[string]float64{}
+	for k, m := range metrics {
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		suf := matchSuffix(k)
+		if suf == "" {
+			continue // not a per-entity breakdown value (e.g. model_mix_source)
+		}
+		e := strings.TrimSuffix(strings.TrimPrefix(k, prefix), suf)
+		if e == "" {
+			continue
+		}
+		keysByEntity[e] = append(keysByEntity[e], k)
+		if m.Used == nil {
+			continue
+		}
+		switch suf {
+		case "_cost_usd", "_cost":
+			cost[e] = *m.Used
+		default:
+			if *m.Used > alt[e] {
+				alt[e] = *m.Used
+			}
+		}
+	}
+	if len(keysByEntity) <= keep {
+		return nil
+	}
+	rank := func(e string) float64 {
+		if c, ok := cost[e]; ok {
+			return c + 1e12 // entities with a cost metric always rank first
+		}
+		return alt[e]
+	}
+	ents := make([]string, 0, len(keysByEntity))
+	for e := range keysByEntity {
+		ents = append(ents, e)
+	}
+	sort.SliceStable(ents, func(i, j int) bool { return rank(ents[i]) > rank(ents[j]) })
+	dropped := map[string]bool{}
+	for _, e := range ents[keep:] {
+		dropped[e] = true
+		for _, k := range keysByEntity[e] {
+			delete(metrics, k)
+		}
+	}
+	return dropped
+}
+
+// pruneFlatMetrics keeps the top `keep` flat metrics under `prefix` (e.g. the
+// lang_* request counts) and deletes the rest.
+func pruneFlatMetrics(metrics map[string]core.Metric, prefix string, keep int) {
+	type kv struct {
+		key string
+		val float64
+	}
+	var items []kv
+	for k, m := range metrics {
+		if strings.HasPrefix(k, prefix) && m.Used != nil {
+			items = append(items, kv{k, *m.Used})
+		}
+	}
+	if len(items) <= keep {
+		return
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].val > items[j].val })
+	for _, it := range items[keep:] {
+		delete(metrics, it.key)
+	}
 }
 
 // scaleByWindow reports whether a metric is a windowed cumulative breakdown
