@@ -41,7 +41,7 @@ func TestAutoDetect_PrecedenceShellRCWinsWhenEnvUnset(t *testing.T) {
 		[]byte("export OPENAI_API_KEY=sk-from-zshrc-precedence-12345\n"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("PATH", "")
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", "")
 	for _, m := range envKeyMapping {
@@ -73,7 +73,7 @@ func TestAutoDetect_PrecedenceEnvVarBeatsAllFiles(t *testing.T) {
 		[]byte("openai-api-key: sk-from-aider\n"), 0o600); err != nil {
 		t.Fatalf("write aider: %v", err)
 	}
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("PATH", "")
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", "")
 	t.Setenv("OPENAI_API_KEY", "sk-from-process-env-12345")
@@ -214,7 +214,7 @@ api_key: test-zai-token
 		t.Fatalf("write config: %v", err)
 	}
 
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("PATH", "")
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", "")
 
@@ -290,10 +290,7 @@ func TestResultSummary_Empty(t *testing.T) {
 func TestFindBinary_UsesExtraDetectBinDirs(t *testing.T) {
 	tmp := t.TempDir()
 	name := "openusage-testbin"
-	path := filepath.Join(tmp, name)
-	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write temp executable: %v", err)
-	}
+	path := writeFakeBinary(t, tmp, name)
 
 	t.Setenv("PATH", "")
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", tmp)
@@ -322,6 +319,32 @@ func TestFindBinary_SkipsNonExecutableFiles(t *testing.T) {
 	if got := findBinary(name); got != "" {
 		t.Fatalf("findBinary() = %q, want empty for non-executable", got)
 	}
+}
+
+// setHome redirects the home directory for the test. On Windows, homeDir()
+// resolves via os.UserHomeDir() which reads %USERPROFILE%, not $HOME, so we
+// must set both for tests to be portable.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+	}
+}
+
+// writeFakeBinary writes a fake executable that findBinary can discover. On
+// Windows findBinary appends ".exe", so the fixture must too. Returns the
+// path actually written (with ".exe" on Windows).
+func writeFakeBinary(t *testing.T, dir, name string) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write fake bin %s: %v", name, err)
+	}
+	return p
 }
 
 // writeExe creates an executable shell script at dir/name with the given body.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -185,6 +186,13 @@ func TestSaveCredentials_OmitsEmptySessions(t *testing.T) {
 // File permissions must be 0o600 — same as before, the new field doesn't
 // change the security posture.
 func TestSaveSession_FilePermsAre0600(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Go on Windows cannot represent POSIX permission bits: os.Chmod only
+		// toggles the read-only attribute and Stat reports 0666/0444, never
+		// 0600. Access control on Windows comes from NTFS ACLs on the user
+		// profile, not mode bits, so this assertion is meaningless there.
+		t.Skip("POSIX file permission bits are not represented on Windows")
+	}
 	path := filepath.Join(t.TempDir(), "credentials.json")
 	if err := SaveSessionTo(path, "opencode-console", BrowserSession{
 		Domain: ".opencode.ai", CookieName: "auth", Value: "v",

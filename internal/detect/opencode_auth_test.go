@@ -17,9 +17,6 @@ import (
 // how the parent shell is configured (some Linux distros export it).
 func withFakeOpenCodeAuth(t *testing.T, body string) string {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("opencode auth path test is unix-shaped")
-	}
 	tmp := t.TempDir()
 	authDir := filepath.Join(tmp, ".local", "share", "opencode")
 	if err := os.MkdirAll(authDir, 0o700); err != nil {
@@ -28,7 +25,7 @@ func withFakeOpenCodeAuth(t *testing.T, body string) string {
 	if err := os.WriteFile(filepath.Join(authDir, "auth.json"), []byte(body), 0o600); err != nil {
 		t.Fatalf("write auth.json: %v", err)
 	}
-	t.Setenv("HOME", tmp)
+	setHome(t, tmp)
 	t.Setenv("XDG_DATA_HOME", "")
 	return tmp
 }
@@ -110,7 +107,7 @@ func TestDetectOpenCodeAuth_EnvVarWins(t *testing.T) {
 
 func TestDetectOpenCodeAuth_MissingFileIsSilent(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setHome(t, tmp)
 
 	var result Result
 	detectOpenCodeAuth(&result) // must not panic, must not add accounts
@@ -182,7 +179,7 @@ func TestDetectOpenCodeAuth_HonoursXDGDataHome(t *testing.T) {
 	// Point HOME at the temp dir too so nothing else interferes. Note that
 	// we deliberately do NOT create ~/.local/share/opencode under HOME — the
 	// only auth.json lives at $XDG_DATA_HOME/opencode/auth.json.
-	t.Setenv("HOME", tmp)
+	setHome(t, tmp)
 	t.Setenv("XDG_DATA_HOME", xdg)
 
 	var result Result
@@ -220,7 +217,7 @@ func TestDetectOpenCodeAuth_DarwinAppSupportFallback(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(authDir, "auth.json"), []byte(body), 0o600); err != nil {
 		t.Fatalf("write auth.json: %v", err)
 	}
-	t.Setenv("HOME", tmp)
+	setHome(t, tmp)
 	t.Setenv("XDG_DATA_HOME", "")
 
 	var result Result

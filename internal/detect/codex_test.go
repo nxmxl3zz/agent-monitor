@@ -21,10 +21,8 @@ func withFakeCodexAuth(t *testing.T, authBody string) (home string) {
 		t.Fatalf("write auth.json: %v", err)
 	}
 	binDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write codex bin: %v", err)
-	}
-	t.Setenv("HOME", home)
+	writeFakeBinary(t, binDir, "codex")
+	setHome(t, home)
 	t.Setenv("PATH", binDir)
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", binDir)
 	t.Setenv("OPENAI_API_KEY", "")

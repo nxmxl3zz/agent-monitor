@@ -14,7 +14,7 @@ import (
 func withCleanCredentialEnv(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
 	t.Setenv("PATH", "")
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", "")

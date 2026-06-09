@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -252,12 +251,11 @@ func DefaultConfig() Config {
 	}
 }
 
+// ConfigDir returns the directory that holds settings.json and other OpenUsage
+// config. The per-OS base is provided by osConfigDir() in the platform-specific
+// config_dir_*.go files.
 func ConfigDir() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("APPDATA"), "openusage")
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "openusage")
+	return osConfigDir()
 }
 
 func ConfigPath() string {

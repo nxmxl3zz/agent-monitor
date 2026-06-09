@@ -8,7 +8,7 @@ import (
 
 func TestDetectKimiCLI_None(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", t.TempDir())
 
@@ -24,7 +24,7 @@ func TestDetectKimiCLI_None(t *testing.T) {
 
 func TestDetectKimiCLI_FromSessionsDir(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", t.TempDir())
 
@@ -51,7 +51,7 @@ func TestDetectKimiCLI_FromSessionsDir(t *testing.T) {
 
 func TestDetectKimiCLI_FromConfigFile(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", t.TempDir())
 
@@ -84,7 +84,7 @@ func TestDetectKimiCLI_DoesNotCollideWithMoonshot(t *testing.T) {
 	// The API-key MOONSHOT account uses ID "moonshot-ai". The local
 	// Kimi CLI account must use a distinct ID so both coexist.
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", t.TempDir())
 
@@ -104,12 +104,10 @@ func TestDetectKimiCLI_DoesNotCollideWithMoonshot(t *testing.T) {
 
 func TestDetectKimiCLI_FromBinaryOnPATH(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	binDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(binDir, "kimi"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write fake bin: %v", err)
-	}
+	writeFakeBinary(t, binDir, "kimi")
 	t.Setenv("PATH", binDir)
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", binDir)
 

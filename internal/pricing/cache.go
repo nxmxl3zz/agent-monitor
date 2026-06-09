@@ -68,7 +68,7 @@ func (c *DiskCache) Load(name string) ([]byte, time.Time, bool, error) {
 		}
 		return nil, time.Time{}, false, fmt.Errorf("pricing: stat cache %s: %w", path, err)
 	}
-	data, err := os.ReadFile(path)
+	data, err := readCacheFile(path)
 	if err != nil {
 		return nil, time.Time{}, false, fmt.Errorf("pricing: read cache %s: %w", path, err)
 	}
@@ -107,7 +107,7 @@ func (c *DiskCache) Store(name string, data []byte) error {
 		cleanup()
 		return fmt.Errorf("pricing: closing temp cache: %w", err)
 	}
-	if err := os.Rename(tmpPath, final); err != nil {
+	if err := atomicReplace(tmpPath, final); err != nil {
 		cleanup()
 		return fmt.Errorf("pricing: renaming temp cache: %w", err)
 	}

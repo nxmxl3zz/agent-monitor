@@ -11,7 +11,7 @@ func TestDetectGoose_NeitherBinNorDB(t *testing.T) {
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", t.TempDir())
 	t.Setenv("PATH", "")
 	t.Setenv("GOOSE_PATH_ROOT", filepath.Join(t.TempDir(), "missing-root"))
-	t.Setenv("HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "missing-xdg"))
 
 	var result Result
@@ -66,14 +66,11 @@ func TestDetectGoose_DBOnlyRegistersAccount(t *testing.T) {
 func TestDetectGoose_BinaryRegistersTool(t *testing.T) {
 	// Fabricate a goose binary on PATH.
 	binDir := t.TempDir()
-	binPath := filepath.Join(binDir, "goose")
-	if err := os.WriteFile(binPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write bin: %v", err)
-	}
+	binPath := writeFakeBinary(t, binDir, "goose")
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", binDir)
 	t.Setenv("PATH", "")
 	t.Setenv("GOOSE_PATH_ROOT", filepath.Join(t.TempDir(), "missing-root"))
-	t.Setenv("HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "missing-xdg"))
 
 	var result Result

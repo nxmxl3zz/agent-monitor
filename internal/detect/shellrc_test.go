@@ -64,7 +64,7 @@ export OPENAI_API_KEY=sk-from-zshrc-1234567890
 		t.Fatalf("write zshrc: %v", err)
 	}
 
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("OPENAI_API_KEY", "")
 
 	var result Result
@@ -101,7 +101,7 @@ func TestDetectShellRC_FindsKeyInZshrcD(t *testing.T) {
 		t.Fatalf("write dropin: %v", err)
 	}
 
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("ANTHROPIC_API_KEY", "")
 
 	var result Result
@@ -128,7 +128,7 @@ func TestDetectShellRC_FindsFishKey(t *testing.T) {
 		t.Fatalf("write fish: %v", err)
 	}
 
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("GROQ_API_KEY", "")
 
 	var result Result
@@ -152,7 +152,7 @@ func TestDetectShellRC_EnvVarBeatsFile(t *testing.T) {
 		t.Fatalf("write zshrc: %v", err)
 	}
 
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("OPENAI_API_KEY", "sk-from-env")
 
 	var result Result
@@ -176,7 +176,7 @@ export OPENAI_API_KEY=sk-real-1234567890
 		t.Fatalf("write zshrc: %v", err)
 	}
 
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("OPENAI_API_KEY", "")
 
 	var result Result
@@ -188,7 +188,7 @@ export OPENAI_API_KEY=sk-real-1234567890
 }
 
 func TestDetectShellRC_HomeUnsetIsSafe(t *testing.T) {
-	t.Setenv("HOME", "")
+	setHome(t, "")
 
 	var result Result
 	detectShellRC(&result) // must not panic
@@ -207,7 +207,7 @@ func TestDetectShellRC_DoesNotDoubleCount(t *testing.T) {
 		t.Fatalf("write profile: %v", err)
 	}
 
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("OPENAI_API_KEY", "")
 
 	var result Result

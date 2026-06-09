@@ -48,14 +48,14 @@ func NewSpool(dir string) *Spool {
 }
 
 func DefaultSpoolDir() (string, error) {
-	if base := strings.TrimSpace(os.Getenv("XDG_STATE_HOME")); base != "" {
-		return filepath.Join(base, "openusage", "telemetry-spool"), nil
-	}
-	home, err := os.UserHomeDir()
+	// Delegate to DefaultStateDir so the spool can never diverge from the rest
+	// of the state directory (notably on Windows, where state lives under
+	// %APPDATA%\openusage\state rather than ~/.local/state).
+	stateDir, err := DefaultStateDir()
 	if err != nil {
-		return "", fmt.Errorf("telemetry spool: resolve home dir: %w", err)
+		return "", err
 	}
-	return filepath.Join(home, ".local", "state", "openusage", "telemetry-spool"), nil
+	return filepath.Join(stateDir, "telemetry-spool"), nil
 }
 
 func (s *Spool) Append(record SpoolRecord) (string, error) {

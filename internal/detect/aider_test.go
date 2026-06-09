@@ -15,10 +15,8 @@ func withAiderHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	binDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(binDir, "aider"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write fake aider bin: %v", err)
-	}
-	t.Setenv("HOME", home)
+	writeFakeBinary(t, binDir, "aider")
+	setHome(t, home)
 	t.Setenv("PATH", binDir)
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", binDir)
 	for _, m := range envKeyMapping {

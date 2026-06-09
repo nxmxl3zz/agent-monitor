@@ -11,7 +11,7 @@ func TestDetectKiro_NeitherBinNorData(t *testing.T) {
 	t.Setenv("PATH", "")
 	t.Setenv("KIRO_DATA_DIR", filepath.Join(t.TempDir(), "missing-data"))
 	t.Setenv("KIRO_SESSIONS_DIR", filepath.Join(t.TempDir(), "missing-sessions"))
-	t.Setenv("HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "missing-xdg"))
 
 	var result Result
@@ -60,10 +60,7 @@ func TestDetectKiro_DBOnlyRegistersAccount(t *testing.T) {
 
 func TestDetectKiro_BinaryRegistersTool(t *testing.T) {
 	binDir := t.TempDir()
-	binPath := filepath.Join(binDir, "kiro")
-	if err := os.WriteFile(binPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write bin: %v", err)
-	}
+	binPath := writeFakeBinary(t, binDir, "kiro")
 
 	t.Setenv("OPENUSAGE_DETECT_BIN_DIRS", binDir)
 	t.Setenv("PATH", "")

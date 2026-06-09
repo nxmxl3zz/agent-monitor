@@ -95,9 +95,14 @@ func NewDefaultDirs() Dirs {
 	}
 
 	return Dirs{
-		Home:         home,
-		ConfigRoot:   configRoot,
-		HooksDir:     filepath.Join(configRoot, "openusage", "hooks"),
+		Home:       home,
+		ConfigRoot: configRoot,
+		// HooksDir is OpenUsage's OWN directory. configRoot stays the XDG-style
+		// base because it also locates third-party tool dirs (e.g. OpenCode,
+		// which resolves opencode.json/plugins via xdg-basedir and so uses
+		// %USERPROFILE%\.config\opencode even on Windows), whereas HooksDir tracks
+		// settings.json — see platformHooksDir() in hooks_dir_*.go.
+		HooksDir:     platformHooksDir(configRoot),
 		OpenusageBin: openusageBin,
 	}
 }

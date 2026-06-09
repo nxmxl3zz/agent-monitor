@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/janekbaraniewski/openusage/internal/core"
@@ -83,20 +82,8 @@ func defaultKiroDBPath() string {
 	if home == "" {
 		return ""
 	}
-	switch runtime.GOOS {
-	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "kiro-cli", "data.sqlite3")
-	case "linux":
-		if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" {
-			return filepath.Join(xdg, "kiro-cli", "data.sqlite3")
-		}
-		return filepath.Join(home, ".local", "share", "kiro-cli", "data.sqlite3")
-	default:
-		if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" {
-			return filepath.Join(xdg, "kiro-cli", "data.sqlite3")
-		}
-		return filepath.Join(home, ".local", "share", "kiro-cli", "data.sqlite3")
-	}
+	// Per-OS data dir is provided by kiroDBPlatformPath() in kiro_db_path_*.go.
+	return kiroDBPlatformPath(home)
 }
 
 func defaultKiroConfigDir() string {

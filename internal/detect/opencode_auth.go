@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/janekbaraniewski/openusage/internal/core"
@@ -50,20 +49,12 @@ var opencodeAuthMapping = map[string]struct {
 // OpenCode's auth.json, in priority order. Detection short-circuits on the
 // first one that exists.
 //
-// Resolution follows the upstream `xdg-basedir` JS package that OpenCode uses:
-//
-//   - XDG_DATA_HOME, if set, wins on every platform.
-//   - Otherwise we fall back to ~/.local/share/opencode/auth.json on Linux
-//     AND macOS (upstream defaults to the XDG path on darwin too — verified
-//     against sindresorhus/xdg-basedir).
-//   - On macOS we additionally probe ~/Library/Application Support/opencode/
-//     auth.json so users who explicitly pinned to the Apple-native location
-//     still get auto-detected.
-//   - On Windows OpenCode resolves its data dir through the `xdg-basedir` JS
-//     package, which has no Windows special-case and therefore writes to
-//     ~/.local/share/opencode/auth.json (see anomalyco/opencode#8235). We probe
-//     that location FIRST, then %LOCALAPPDATA% and %APPDATA% as forward-compat
-//     fallbacks in case upstream switches to the OS-native convention.
+// XDG_DATA_HOME, if set, wins on every platform. The remaining per-OS
+// candidates are provided by opencodeAuthPlatformPaths() in the
+// opencode_auth_paths_*.go files. OpenCode resolves its data dir through the
+// `xdg-basedir` JS package, which has no Windows special-case and therefore
+// writes to ~/.local/share/opencode/auth.json even on Windows (see
+// anomalyco/opencode#8235) — hence the XDG-style default is probed first there.
 func opencodeAuthPaths() []string {
 	home := homeDir()
 	if home == "" {
@@ -74,26 +65,7 @@ func opencodeAuthPaths() []string {
 	if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" {
 		paths = append(paths, filepath.Join(xdg, "opencode", "auth.json"))
 	}
-
-	switch runtime.GOOS {
-	case "windows":
-		// Where OpenCode actually writes today: the Linux-style XDG default,
-		// because xdg-basedir does not honour the Windows convention.
-		paths = append(paths, filepath.Join(home, ".local", "share", "opencode", "auth.json"))
-		if localAppData := strings.TrimSpace(os.Getenv("LOCALAPPDATA")); localAppData != "" {
-			paths = append(paths, filepath.Join(localAppData, "opencode", "auth.json"))
-		}
-		if appData := strings.TrimSpace(os.Getenv("APPDATA")); appData != "" {
-			paths = append(paths, filepath.Join(appData, "opencode", "auth.json"))
-		} else {
-			paths = append(paths, filepath.Join(home, "AppData", "Roaming", "opencode", "auth.json"))
-		}
-	default:
-		paths = append(paths, filepath.Join(home, ".local", "share", "opencode", "auth.json"))
-		if runtime.GOOS == "darwin" {
-			paths = append(paths, filepath.Join(home, "Library", "Application Support", "opencode", "auth.json"))
-		}
-	}
+	paths = append(paths, opencodeAuthPlatformPaths(home)...)
 
 	// Deduplicate while preserving order (XDG_DATA_HOME may resolve to the
 	// same path as the default).

@@ -152,11 +152,8 @@ func customOverridesPath() (string, error) {
 	if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
 		return filepath.Join(xdg, "openusage", CustomOverridesFilename), nil
 	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return "", nil
-	}
-	return filepath.Join(home, ".config", "openusage", CustomOverridesFilename), nil
+	// Platform default: tracks settings.json's location (see overrides_path_*.go).
+	return platformCustomOverridesPath()
 }
 
 // loadCustomOverridesOnce wraps LoadCustomOverrides behind a sync.Once

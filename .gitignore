@@ -25,6 +25,8 @@ vendor/
 .DS_Store
 Thumbs.db
 # Debug / temp
+.testbin/
+.gotmp/
 *.har
 *.prof
 .aider/
