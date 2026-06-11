@@ -10,6 +10,7 @@ import (
 func TestFiveHourCacheRoundTrip(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir uses %USERPROFILE% on Windows
 
 	if _, _, ok := ReadFiveHourCache(); ok {
 		t.Fatalf("expected no cache before any write")
@@ -42,6 +43,7 @@ func TestFiveHourCacheRoundTrip(t *testing.T) {
 func TestReadFiveHourCacheRejectsCorrupt(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	p := UsageCachePath()
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {

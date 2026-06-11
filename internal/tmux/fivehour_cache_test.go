@@ -9,10 +9,19 @@ import (
 
 func ptr(v float64) *float64 { return &v }
 
+// setTempHome points os.UserHomeDir at a fresh temp dir on all platforms. HOME
+// alone is not enough on Windows, where os.UserHomeDir reads %USERPROFILE%.
+func setTempHome(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+}
+
 // When the live snapshot carries usage_five_hour, reconcile persists it so a
 // later budget-limited render has a warm fallback.
 func TestReconcileFiveHourWritesCacheWhenPresent(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTempHome(t)
 
 	c := &Context{
 		Provider: "claude_code",
@@ -32,7 +41,7 @@ func TestReconcileFiveHourWritesCacheWhenPresent(t *testing.T) {
 // resolve within budget), reconcile injects a recent cached value so block_pct
 // still renders instead of the 5h segment silently dropping.
 func TestReconcileFiveHourInjectsFromCacheWhenMissing(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTempHome(t)
 	claude_code.WriteFiveHourCache(13)
 
 	c := &Context{
@@ -60,7 +69,7 @@ func TestReconcileFiveHourInjectsFromCacheWhenMissing(t *testing.T) {
 
 // A cold cache leaves the segment empty rather than fabricating a value.
 func TestReconcileFiveHourNoCacheLeavesMissing(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTempHome(t)
 
 	c := &Context{
 		Provider: "claude_code",
