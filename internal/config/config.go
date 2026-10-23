@@ -249,9 +249,12 @@ func DefaultConfig() Config {
 }
 
 // ConfigDir returns the directory that holds settings.json and other OpenUsage
-// config. The per-OS base is provided by osConfigDir() in the platform-specific
-// config_dir_*.go files.
+// config. OPENUSAGE_CONFIG_DIR selects an independent profile; otherwise the
+// per-OS base is provided by osConfigDir().
 func ConfigDir() string {
+	if dir := strings.TrimSpace(os.Getenv("OPENUSAGE_CONFIG_DIR")); dir != "" {
+		return dir
+	}
 	return osConfigDir()
 }
 

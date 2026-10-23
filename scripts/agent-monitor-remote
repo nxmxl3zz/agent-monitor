@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""Keep Agent Monitor reachable through its dedicated, rootless Tailscale node."""
+import hashlib
+import io
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tarfile
+import time
+import urllib.request
+
+ROOT = Path(__file__).resolve().parent.parent
+TAILSCALE = ROOT / "scripts/agent-monitor-tailscale"
+STATUS = ROOT / ".runtime/remote/status.json"
+UNIT = "agent-monitor-remote.service"
+NODE_UNIT = "agent-monitor-tailscale.service"
+NODE_DIR = Path.home() / ".local/lib/agent-monitor/tailscale"
+NODE_STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "agent-monitor-tailscale"
+UNIT_DIR = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "systemd/user"
+PACKAGES = "https://pkgs.tailscale.com/stable/"
+ARCHES = {"x86_64": "amd64", "aarch64": "arm64", "armv7l": "arm", "i686": "386"}
+
+
+def fetch(url):
+    with urllib.request.urlopen(url, timeout=60) as response:
+        return response.read()
+
+
+def systemd_path(path):
+    # Same escaping as the other service installers: quoted ExecStart, literal % and $.
+    return str(path).replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%").replace("$", "$$")
+
+
+def install():
+    """Download the official static Tailscale build and register both user services."""
+    arch = ARCHES.get(os.uname().machine)
+    if not arch:
+        raise RuntimeError("Unsupported architecture: " + os.uname().machine)
+    name = json.loads(fetch(PACKAGES + "?mode=json"))["Tarballs"][arch]
+    expected = fetch(PACKAGES + name + ".sha256").decode().split()[0]
+    archive = fetch(PACKAGES + name)
+    if hashlib.sha256(archive).hexdigest() != expected:
+        raise RuntimeError("Checksum mismatch for " + name)
+    NODE_DIR.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as bundle:
+        for member in bundle.getmembers():
+            binary = Path(member.name).name
+            if member.isfile() and binary in ("tailscale", "tailscaled"):
+                temporary = NODE_DIR / (binary + ".new")
+                temporary.write_bytes(bundle.extractfile(member).read())
+                temporary.chmod(0o755)
+                temporary.replace(NODE_DIR / binary)
+    NODE_STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+    UNIT_DIR.mkdir(parents=True, exist_ok=True)
+    (UNIT_DIR / NODE_UNIT).write_text(
+        "[Unit]\nDescription=Private remote access for Agent Monitor\nAfter=network-online.target\nWants=network-online.target\n\n"
+        "[Service]\nType=simple\n"
+        f'ExecStart="{systemd_path(NODE_DIR / "tailscaled")}" --tun=userspace-networking --state="{systemd_path(NODE_STATE / "tailscaled.state")}" '
+        f'--statedir="{systemd_path(NODE_STATE)}" --socket="{systemd_path(NODE_STATE / "tailscaled.sock")}" --port=0\n'
+        "Restart=on-failure\nRestartSec=3\nUMask=0077\nNoNewPrivileges=true\n\n[Install]\nWantedBy=default.target\n")
+    (UNIT_DIR / UNIT).write_text(
+        "[Unit]\nDescription=Configure Agent Monitor private mobile access\n"
+        f"Wants={NODE_UNIT} agent-monitor-web.service\nAfter={NODE_UNIT} agent-monitor-web.service\n\n"
+        f'[Service]\nType=simple\nExecStart="{systemd_path(Path(__file__).resolve())}" run\n'
+        "Restart=on-failure\nRestartSec=5\nUMask=0077\nNoNewPrivileges=true\n\n[Install]\nWantedBy=default.target\n")
+    subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+    subprocess.run(["systemctl", "--user", "enable", "--now", NODE_UNIT, UNIT], check=True)
+    print(f"Installed {name}. Next: agent-monitor remote login")
+
+
+def uninstall():
+    """Remove the services and binaries; the node identity in NODE_STATE is kept for a reinstall."""
+    subprocess.run(["systemctl", "--user", "disable", "--now", UNIT, NODE_UNIT], check=False)
+    for unit in (UNIT, NODE_UNIT):
+        (UNIT_DIR / unit).unlink(missing_ok=True)
+    for binary in ("tailscale", "tailscaled"):
+        (NODE_DIR / binary).unlink(missing_ok=True)
+    subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+    print(f"Removed. Node state kept in {NODE_STATE}; delete it to forget this machine.")
+
+
+def command(args, timeout=20):
+    return subprocess.run([str(arg) for arg in args], capture_output=True, text=True, timeout=timeout)
+
+
+def network_status():
+    result = command([TAILSCALE, "status", "--json"])
+    if result.returncode:
+        raise RuntimeError("Could not query Tailscale")
+    return json.loads(result.stdout)
+
+
+def save(value):
+    STATUS.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = STATUS.with_suffix(".tmp")
+    temporary.write_text(json.dumps(value, indent=2) + "\n")
+    temporary.chmod(0o600)
+    temporary.replace(STATUS)
+
+
+def configure(network):
+    dns = network.get("Self", {}).get("DNSName", "").rstrip(".")
+    if not dns or not re.fullmatch(r"[a-zA-Z0-9.-]+", dns):
+        raise RuntimeError("Waiting for the machine name on the tailnet")
+    ips = [str(ipaddress.ip_address(ip)) for ip in network.get("TailscaleIPs", []) if ":" not in ip]
+    if not ips:
+        raise RuntimeError("Waiting for the tailnet address")
+    hosts = [dns, dns.split(".")[0], *ips]
+    result = command([ROOT / "scripts/agent-monitor-web-service", "install", *hosts])
+    if result.returncode:
+        raise RuntimeError("Could not configure the web service")
+    result = command([TAILSCALE, "serve", "--bg", "--yes", "--http=80", "http://127.0.0.1:8787"])
+    if result.returncode:
+        raise RuntimeError("Could not enable private access")
+    value = {"state": "ready", "url": "http://" + dns, "ip_url": "http://" + ips[0], "https": False}
+    try:
+        result = command([TAILSCALE, "serve", "--bg", "--yes", "--https=443", "http://127.0.0.1:8787"], timeout=12)
+        output = result.stdout + result.stderr
+        if result.returncode == 0:
+            value.update(url="https://" + dns, https=True)
+    except subprocess.TimeoutExpired as error:
+        parts = [error.stdout or "", error.stderr or ""]
+        output = "".join(part.decode(errors="replace") if isinstance(part, bytes) else part for part in parts)
+    if not value["https"]:
+        match = re.search(r"https://login\.tailscale\.com/f/serve\?[^\s]+", output)
+        if match:
+            value["enable_https_url"] = match.group(0)
+    save(value)
+    return value
+
+
+def run():
+    configured = None
+    while True:
+        try:
+            network = network_status()
+            state = network.get("BackendState", "unknown")
+            if state != "Running":
+                save({"state": state, "auth_url": network.get("AuthURL", "")})
+                configured = None
+            else:
+                fingerprint = (network.get("Self", {}).get("DNSName"), tuple(network.get("TailscaleIPs") or []), tuple(network.get("CertDomains") or []))
+                if fingerprint != configured:
+                    current = configure(network)
+                    configured = fingerprint
+                    print("Private access ready: " + current["url"], flush=True)
+        except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as error:
+            save({"state": "retrying", "message": str(error)[:160]})
+        time.sleep(15)
+
+
+def main():
+    action = sys.argv[1] if len(sys.argv) > 1 else "status"
+    if action == "run":
+        run()
+    elif action == "status":
+        network = network_status()
+        value = json.loads(STATUS.read_text()) if STATUS.exists() else {}
+        value["network_state"] = network.get("BackendState")
+        if network.get("AuthURL"):
+            value["auth_url"] = network["AuthURL"]
+        print(json.dumps(value, indent=2))
+    elif action == "login":
+        os.execv(str(TAILSCALE), [str(TAILSCALE), "up", "--hostname=agent-monitor", "--accept-dns=false", "--accept-routes=false", "--timeout=60s"])
+    elif action == "install":
+        install()
+    elif action == "uninstall":
+        uninstall()
+    elif action == "stop":
+        os.execvp("systemctl", ["systemctl", "--user", "stop", UNIT, NODE_UNIT])
+    elif action in ("start", "restart"):
+        os.execvp("systemctl", ["systemctl", "--user", action, UNIT])
+    else:
+        print("Usage: agent-monitor remote {install|login|status|start|stop|restart|uninstall}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

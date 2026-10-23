@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+monitor_ts_dir="$HOME/.local/lib/agent-monitor/tailscale"
+monitor_ts_state="${XDG_STATE_HOME:-$HOME/.local/state}/agent-monitor-tailscale"
+exec "$monitor_ts_dir/tailscale" --socket="$monitor_ts_state/tailscaled.sock" "$@"

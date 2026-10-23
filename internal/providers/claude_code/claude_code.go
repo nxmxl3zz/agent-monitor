@@ -2,6 +2,7 @@ package claude_code
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -21,6 +22,8 @@ type Provider struct {
 	mu                  sync.Mutex
 	usageAPICache       *usageResponse // last successful Usage API response
 	lastUsageAuthSource string         // name of the usageAuthSource that last succeeded; empty until a first success
+	lastOAuthRefresh    time.Time
+	oauthRefresh        func(context.Context) error
 
 	jsonlCacheMu sync.Mutex
 	jsonlCache   map[string]*jsonlCacheEntry // keyed by file path
@@ -446,6 +449,8 @@ func (p *Provider) Fetch(ctx context.Context, acct core.AccountConfig) (core.Usa
 	if orgUUID, ok := snap.Raw["organization_uuid"]; ok && orgUUID != "" {
 		if err := p.readUsageAPI(ctx, orgUUID, &snap); err != nil {
 			snap.Raw["usage_api_error"] = err.Error()
+			// Raw stays in-process; the daemon forwards Diagnostics, so views can tell why quotas are missing.
+			snap.SetDiagnostic("usage_api_error", usageErrorReason(err))
 		} else {
 			hasData = true
 		}
@@ -567,6 +572,15 @@ func (p *Provider) readUsageAPI(ctx context.Context, orgUUID string, snap *core.
 	return fmt.Errorf("all usage API sources failed: %s", strings.Join(errs, "; "))
 }
 
+// usageErrorReason reduces a usage API failure to a short, credential-free
+// reason: "rate_limited" when Anthropic answered 429, "unavailable" otherwise.
+func usageErrorReason(err error) string {
+	if err != nil && strings.Contains(err.Error(), "API returned 429") {
+		return "rate_limited"
+	}
+	return "unavailable"
+}
+
 func findUsageAuthSource(sources []usageAuthSource, name string) (usageAuthSource, bool) {
 	for _, src := range sources {
 		if src.name == name {
@@ -580,6 +594,12 @@ func findUsageAuthSource(sources []usageAuthSource, name string) (usageAuthSourc
 // the fetched usage to snap and pins the source for subsequent calls.
 func (p *Provider) tryUsageAuthSource(ctx context.Context, src usageAuthSource, snap *core.UsageSnapshot) error {
 	url, setAuth, err := src.prepare()
+	if src.name == "oauth" && errors.Is(err, errClaudeOAuthExpired) {
+		if err = p.refreshExpiredOAuth(ctx); err != nil {
+			return err
+		}
+		url, setAuth, err = src.prepare()
+	}
 	if err != nil {
 		return err
 	}
@@ -590,6 +610,28 @@ func (p *Provider) tryUsageAuthSource(ctx context.Context, src usageAuthSource, 
 	p.applyFetchedUsage(usage, snap, src.name)
 	p.setLastUsageAuthSource(src.name)
 	return nil
+}
+
+func (p *Provider) refreshExpiredOAuth(ctx context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	// Another reader or Claude itself may already have renewed the credentials.
+	if _, err := readClaudeCodeOAuthToken(); !errors.Is(err, errClaudeOAuthExpired) {
+		return err
+	}
+	if time.Since(p.lastOAuthRefresh) < time.Minute {
+		return fmt.Errorf("Claude session renewal recently failed; retrying later")
+	}
+	p.lastOAuthRefresh = time.Now()
+	refresh := p.oauthRefresh
+	if refresh == nil {
+		refresh = refreshClaudeOAuthViaCLI
+	}
+	if err := refresh(ctx); err != nil {
+		return err
+	}
+	_, err := readClaudeCodeOAuthToken()
+	return err
 }
 
 // applyFetchedUsage records a freshly fetched usage response as the shared

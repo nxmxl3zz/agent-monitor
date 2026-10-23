@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+monitor_script_path="$(readlink -f -- "${BASH_SOURCE[0]}")"
+monitor_root_dir="$(cd -- "$(dirname -- "$monitor_script_path")/.." && pwd)"
+monitor_runtime_dir="$monitor_root_dir/.runtime"
+monitor_binary="$monitor_root_dir/bin/openusage"
+
+if [[ "${1:-}" == "service" ]]; then
+  shift
+  exec "$monitor_root_dir/scripts/agent-monitor-service" "$@"
+fi
+
+if [[ "${1:-}" == "web-service" ]]; then
+  shift
+  exec "$monitor_root_dir/scripts/agent-monitor-web-service" "$@"
+fi
+
+if [[ "${1:-}" == "tailscale" ]]; then
+  shift
+  exec "$monitor_root_dir/scripts/agent-monitor-tailscale" "$@"
+fi
+
+if [[ "${1:-}" == "remote" ]]; then
+  shift
+  exec "$monitor_root_dir/scripts/agent-monitor-remote" "$@"
+fi
+
+if [[ ! -x "$monitor_binary" ]]; then
+  printf 'Build first: cd "%s" && make build\n' "$monitor_root_dir" >&2
+  exit 1
+fi
+
+umask 077
+mkdir -p "$monitor_runtime_dir/config" "$monitor_runtime_dir/state"
+if [[ ! -f "$monitor_runtime_dir/config/settings.json" ]]; then
+  cp "$monitor_root_dir/configs/agent-monitor.json" "$monitor_runtime_dir/config/settings.json"
+fi
+
+export OPENUSAGE_CONFIG_DIR="$monitor_runtime_dir/config"
+export XDG_STATE_HOME="$monitor_runtime_dir/state"
+export OPENUSAGE_TELEMETRY_SOCKET="$monitor_runtime_dir/state/openusage/telemetry.sock"
+
+if [[ $# -eq 0 || "${1:-}" == "--json" ]]; then
+  exec "$monitor_binary" monitor "$@"
+fi
+exec "$monitor_binary" "$@"

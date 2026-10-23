@@ -11,7 +11,7 @@ OpenUsage follows the [XDG Base Directory Specification](https://specifications.
 
 | Path | Purpose | Override |
 |---|---|---|
-| `~/.config/openusage/settings.json` | Main config file. | — |
+| `~/.config/openusage/settings.json` | Main config file. | `OPENUSAGE_CONFIG_DIR` (directory) |
 | `~/.config/openusage/settings.json.corrupt` | Copy of a `settings.json` OpenUsage had to salvage, kept for inspection. Overwritten on each repair. See [common issues](../troubleshooting/common-issues.md). | — |
 | `~/.config/openusage/custom-pricing.json` | User pricing overrides. | `OPENUSAGE_CUSTOM_PRICING`, `XDG_CONFIG_HOME` |
 | `~/.config/openusage/themes/` | External themes directory (scanned for `*.json`). | `OPENUSAGE_THEME_DIR` (extra dirs only) |
@@ -22,6 +22,13 @@ OpenUsage follows the [XDG Base Directory Specification](https://specifications.
 | `~/.local/state/openusage/telemetry-spool/` | Hook spool — events queued while the daemon is offline. | `--spool-dir` |
 | `~/.local/state/openusage/daemon.stdout.log` | Daemon stdout when running as a service. | — |
 | `~/.local/state/openusage/daemon.stderr.log` | Daemon stderr when running as a service. | — |
+
+This variant accepts `OPENUSAGE_CONFIG_DIR` as an explicit configuration-directory
+override on every platform. Use an absolute directory path; `settings.json`,
+credentials and external themes resolve within it. Without this variable, the
+platform defaults below are unchanged. The development launcher
+`scripts/agent-monitor` sets it and uses `XDG_STATE_HOME` for a separate state
+directory. It does not change the official clients' authentication directories.
 
 ## Service files
 

@@ -97,9 +97,12 @@ func (s *Service) pollProviders(ctx context.Context) {
 			}
 
 			_, hasDetector := provider.(core.ChangeDetector)
+			// Subscription quotas also change on other clients and on the server.
+			// Keep checking them even when local transcript files are idle.
+			liveQuota := account.Provider == "codex" || account.Provider == "claude_code"
 
 			// Adaptive backoff: skip providers that are in a backoff window.
-			if !s.pollScheduler.ShouldPoll(account.ID, hasDetector) {
+			if !liveQuota && !s.pollScheduler.ShouldPoll(account.ID, hasDetector) {
 				s.pollStateMu.Lock()
 				state := s.pollState[account.ID]
 				s.pollStateMu.Unlock()
@@ -111,7 +114,7 @@ func (s *Service) pollProviders(ctx context.Context) {
 			}
 
 			// Check if provider data has changed since last fetch (optional interface).
-			if cached := s.skipUnchangedProvider(provider, account); cached != nil {
+			if cached := s.skipUnchangedProvider(provider, account); !liveQuota && cached != nil {
 				s.pollScheduler.RecordPoll(account.ID, false)
 				results <- pollProviderResult{accountID: account.ID, snapshot: *cached}
 				return

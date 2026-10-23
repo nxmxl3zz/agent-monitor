@@ -3,6 +3,7 @@
 /agentquota
 bin/
 dist/
+.runtime/
 
 # Go
 *.exe
@@ -68,3 +69,6 @@ drafts/
 # Python bytecode (font scripts)
 scripts/__pycache__/
 __pycache__/
+
+# Planning and review material (never commit)
+noCommit/

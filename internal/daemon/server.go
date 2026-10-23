@@ -51,7 +51,8 @@ type Service struct {
 	// clock provides the wall-clock used for snapshot timestamps and any
 	// state that needs to be reproducible in tests. Defaults to
 	// core.SystemClock{}; tests can override via WithClock.
-	clock core.Clock
+	clock          core.Clock
+	sessionTracker *telemetry.SessionTracker
 }
 
 func (s *Service) markDataIngested() {
@@ -168,6 +169,7 @@ func startService(ctx context.Context, cfg Config) (*Service, error) {
 		pollScheduler:    newPollScheduler(cfg.PollInterval),
 		pollState:        make(map[string]*providerPollState),
 		clock:            core.SystemClock{},
+		sessionTracker:   telemetry.NewSessionTracker(),
 	}
 
 	svc.infof(
@@ -348,6 +350,8 @@ func (s *Service) startSocketServer(ctx context.Context) error {
 	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.HandleFunc("/v1/hook/", s.handleHook)
 	mux.HandleFunc("/v1/read-model", s.handleReadModel)
+	mux.HandleFunc("/v1/sessions", s.handleSessions)
+	mux.HandleFunc("/v1/monitor-analytics", s.handleMonitorAnalytics)
 
 	server := &http.Server{
 		Handler:           mux,

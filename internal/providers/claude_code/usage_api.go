@@ -250,6 +250,8 @@ func fetchUsageAPIWithAuth(ctx context.Context, url string, setAuth func(*http.R
 // variable rather than a constant so tests can point it at an httptest server.
 var oauthUsageURL = "https://api.anthropic.com/api/oauth/usage"
 
+var errClaudeOAuthExpired = errors.New("Claude Code OAuth token expired")
+
 // readClaudeCodeOAuthToken loads the Claude Code CLI's OAuth access token from
 // ~/.claude/.credentials.json. It errors if the file is missing, the token is
 // absent, or the token has already expired (Claude Code refreshes it on next
@@ -280,7 +282,30 @@ func readClaudeCodeOAuthToken() (string, error) {
 		return "", fmt.Errorf("no OAuth access token in %s", credsPath)
 	}
 	if exp := creds.ClaudeAiOauth.ExpiresAt; exp > 0 && time.Now().UnixMilli() >= exp {
-		return "", fmt.Errorf("Claude Code OAuth token expired (refreshed on next Claude Code use)")
+		return "", errClaudeOAuthExpired
 	}
 	return token, nil
+}
+
+// Let the official client own refresh-token rotation and credential storage.
+// This auth-status command neither opens a work session nor sends a model prompt.
+func refreshClaudeOAuthViaCLI(ctx context.Context) error {
+	binary, err := exec.LookPath("claude")
+	if err != nil {
+		home, _ := os.UserHomeDir()
+		binary = filepath.Join(home, ".local", "bin", "claude")
+		if info, statErr := os.Stat(binary); statErr != nil || info.IsDir() {
+			return fmt.Errorf("Claude CLI unavailable for session renewal")
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "auth", "status", "--json")
+	cmd.WaitDelay = time.Second
+	cmd.Dir, _ = os.UserHomeDir()
+	cmd.Stdout, cmd.Stderr = io.Discard, io.Discard
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Claude client could not renew its session: %w", err)
+	}
+	return nil
 }

@@ -1,0 +1,37 @@
+{
+  "auto_detect": false,
+  "theme": "Nord",
+  "ui": {
+    "refresh_interval_seconds": 30,
+    "warn_threshold": 0.20,
+    "crit_threshold": 0.05
+  },
+  "data": {
+    "time_window": "1d",
+    "retention_days": 30
+  },
+  "accounts": [
+    { "id": "codex", "provider": "codex" },
+    { "id": "claude_code", "provider": "claude_code" }
+  ],
+  "dashboard": {
+    "view": "grid",
+    "hide_costs": true,
+    "hide_sections_with_no_data": true,
+    "providers": [
+      { "account_id": "codex", "enabled": true },
+      { "account_id": "claude_code", "enabled": true }
+    ],
+    "widget_sections": [
+      { "id": "top_usage_progress", "enabled": true },
+      { "id": "model_burn", "enabled": true },
+      { "id": "project_breakdown", "enabled": true },
+      { "id": "tool_usage", "enabled": true },
+      { "id": "mcp_usage", "enabled": true },
+      { "id": "daily_usage", "enabled": true },
+      { "id": "code_stats", "enabled": false },
+      { "id": "language_burn", "enabled": false },
+      { "id": "other_data", "enabled": false }
+    ]
+  }
+}

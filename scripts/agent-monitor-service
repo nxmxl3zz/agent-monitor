@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+monitor_root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+monitor_unit_name="agent-monitor.service"
+monitor_unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+monitor_action="${1:-status}"
+
+case "$monitor_action" in
+  install)
+    if [[ ! -x "$monitor_root_dir/bin/openusage" ]]; then
+      printf 'Build first with make build.\n' >&2
+      exit 1
+    fi
+    mkdir -p "$monitor_unit_dir"
+    monitor_launcher="$monitor_root_dir/scripts/agent-monitor"
+    monitor_launcher="${monitor_launcher//\\/\\\\}"
+    monitor_launcher="${monitor_launcher//\"/\\\"}"
+    monitor_launcher="${monitor_launcher//%/%%}"
+    monitor_launcher="${monitor_launcher//\$/\$\$}"
+    printf '[Unit]\nDescription=Codex and Claude session monitor\nAfter=default.target\n\n[Service]\nType=simple\nExecStart="%s" telemetry daemon run --collect-interval 2s --poll-interval 60s\nRestart=on-failure\nRestartSec=3\n\n[Install]\nWantedBy=default.target\n' "$monitor_launcher" > "$monitor_unit_dir/$monitor_unit_name"
+    systemctl --user daemon-reload
+    systemctl --user enable --now "$monitor_unit_name"
+    ;;
+  start|stop|restart|status)
+    systemctl --user "$monitor_action" "$monitor_unit_name"
+    ;;
+  uninstall)
+    systemctl --user disable --now "$monitor_unit_name"
+    rm -f -- "$monitor_unit_dir/$monitor_unit_name"
+    systemctl --user daemon-reload
+    ;;
+  *)
+    printf 'Usage: agent-monitor service {install|start|stop|restart|status|uninstall}\n' >&2
+    exit 2
+    ;;
+esac

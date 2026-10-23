@@ -1,320 +1,280 @@
 <p align="center">
-  <img src="./assets/logo.gif" alt="OpenUsage logo">
+  <img src="./assets/agent-monitor/logo.svg" width="72" alt="Agent Monitor logo">
 </p>
 
-<p align="center"><strong>OpenUsage.sh: terminal-first local quota and usage tracking for Claude Code, Codex CLI, Cursor, Copilot, and OpenRouter.</strong></p>
+<h1 align="center">Agent Monitor</h1>
 
 <p align="center">
-  <a href="#install">Install</a> &middot;
-  <a href="#supported-providers">Providers</a> &middot;
-  <a href="#configuration">Config</a> &middot;
-  <a href="#keybindings">Keybindings</a> &middot;
-  <a href="#development">Development</a>
+  <strong>A live dashboard for your Codex and Claude subscriptions.</strong><br>
+  Quotas, token usage and agent sessions, in your terminal and on your phone.
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> &middot;
+  <a href="#phone-access-with-tailscale">Phone access</a> &middot;
+  <a href="#everyday-commands">Commands</a> &middot;
+  <a href="#troubleshooting">Troubleshooting</a> &middot;
+  <a href="./docs/site/docs/guides/agent-monitor.md">Full guide</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
+  <img src="https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26">
+  <img src="https://img.shields.io/badge/platform-Linux-lightgrey?logo=linux&logoColor=white" alt="Linux">
+  <img src="https://img.shields.io/badge/remote-Tailscale-242424?logo=tailscale&logoColor=white" alt="Tailscale">
 </p>
 
 ---
 
-OpenUsage is the terminal-first local dashboard published at [openusage.sh](https://openusage.sh/). Publicly, the clearest brand reference is **OpenUsage.sh**. It auto-detects AI coding tools and API keys on your workstation and shows live quota, usage, spend, resets, rate limits, and model data in your terminal. It is built for mixed-tool workflows across Claude Code, Codex CLI, Cursor, Copilot, Gemini CLI, OpenRouter, OpenAI, Anthropic, and more. Zero config required — just run `openusage`.
+![Agent Monitor web dashboard](./assets/agent-monitor/dashboard.png)
 
-![OpenUsage dashboard](./assets/dashboard.png)
-
-Run it side-by-side with your coding agent:
-
-<p align="center">
-  <img src="./assets/sidebyside.png" alt="OpenUsage side by side">
-  <br>
-  <em>OpenUsage running alongside OpenCode monitoring live OpenRouter usage.</em>
-</p>
-
-## Install
-
-### macOS (Homebrew, recommended)
-
-```bash
-brew install janekbaraniewski/tap/openusage
-```
-
-### All platforms (quick install script)
-
-```bash
-curl -fsSL https://github.com/janekbaraniewski/openusage/releases/latest/download/install.sh | bash
-```
-
-### From source (Go 1.25+)
-
-```bash
-go install github.com/janekbaraniewski/openusage/cmd/openusage@latest
-```
-
-Requires CGO (`CGO_ENABLED=1`). Pre-built binaries are also available on the [Releases](https://github.com/janekbaraniewski/openusage/releases) page.
-
-## Run
-
-```bash
-openusage
-```
-
-Auto-detection picks up local tools and common API key env vars. No config needed.
-
-## Command-line reports & statusline
-
-Besides the live dashboard, OpenUsage has headless subcommands that reuse the same parsing and pricing — handy for scripts, CI, and quick checks:
-
-```bash
-openusage daily                # usage & cost by day (also: weekly, monthly)
-openusage session              # grouped by session
-openusage blocks               # by 5-hour billing block, with burn rate + projection
-openusage daily --json         # machine-readable output for scripts/CI
-openusage statusline install   # one-line status bar for Claude Code
-```
-
-What each report can show, by provider:
-
-| Report | Providers |
-|---|---|
-| `daily` / `weekly` / `monthly` | every provider that reports cost or tokens |
-| `session` / `blocks` | Claude Code, Codex, Gemini CLI, Copilot, Cursor, OpenCode, Ollama, Amp, Codebuff, OpenClaw, Roo Code, Kilo Code, Crush, Goose, Hermes, Zed, Droid, Kiro |
-| `statusline` | Claude Code |
-
-Remote API platforms (OpenAI, Anthropic, OpenRouter, …) appear in the periodic reports only — they expose no per-turn data. See the [headless reports & statusline guide](docs/site/docs/guides/cli-reports.md) for the full matrix and flags.
-
-### Add to tmux
+Agent Monitor is a fork of [OpenUsage](https://github.com/janekbaraniewski/openusage)
+focused on two subscriptions: **Codex** (ChatGPT plan) and **Claude Code**
+(Claude plan). It answers the questions you ask while an agent is working:
+*how much of my 5-hour window is left, when does it reset, which model is
+eating the tokens, and how much of that is cache?* A background collector
+reads the official clients' local logs and quota endpoints, and you watch it
+from a terminal view or a web dashboard you can open on your phone from
+anywhere, privately, through Tailscale.
 
 <table>
-<tr>
-<td width="55%" valign="middle">
-
-Show your Claude Code, Codex, Cursor, Copilot, and OpenRouter usage — cost, quota, burn rate, and the active tool — right in your **tmux status bar**. It tracks whichever tool you're actively using and renders its real, brand-colored logo.
-
-</td>
-<td width="45%" valign="middle">
-
-![OpenUsage in the tmux status bar](./assets/tmux-ccode.png)
-
-</td>
-</tr>
+  <tr>
+    <td width="50%"><img src="./assets/agent-monitor/filter-breakdown.png" alt="Model filter and usage breakdown"></td>
+    <td width="50%"><img src="./assets/agent-monitor/synced-cursor.png" alt="Synced cursor across time charts"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Filter by model and see fresh input, cache and output at a glance.</em></td>
+    <td align="center"><em>One cursor, three charts: every time chart marks the same interval.</em></td>
+  </tr>
 </table>
 
-One command to set it up. Tweak the layout and segments live, then reload:
-
-```bash
-openusage tmux install                         # interactive setup
-tmux source-file ~/.config/tmux/tmux.conf      # reload
-```
-
 <p align="center">
-  <img src="./assets/install-tmux.gif" alt="Installing the OpenUsage tmux status segment" width="720">
+  <img src="./assets/agent-monitor/phone.png" width="270" alt="Dashboard on a phone">
+  &nbsp;&nbsp;
+  <img src="./assets/agent-monitor/phone-breakdown.png" width="270" alt="Usage breakdown on a phone">
+  <br>
+  <em>Built for the phone first: sticky filters, tap-to-filter and a tap-for-details breakdown.</em>
 </p>
-
-Want real provider logos instead of emoji? The installer can drop in a bundled icon font and wire up your terminal. See [provider icons](docs/site/docs/guides/tmux-integration.md#provider-icons-custom-font).
-
-```bash
-openusage tmux install --write                 # non-interactive (scripting): just write the snippet
-openusage tmux --preset claude-focused         # preview other presets (12 built-in)
-openusage tmux font setup                       # configure icons for kitty/Ghostty/WezTerm
-openusage tmux doctor                          # diagnose if something is off
-```
-
-See the [tmux integration guide](docs/site/docs/guides/tmux-integration.md) for the format grammar, theming, the icon font, and watch-mode alerts.
-
-### Claude Code statusline
-
-Your cost, burn rate, how much of the 5-hour limit you've used, and how full the context window is. Right in the **Claude Code status bar**:
-
-![OpenUsage statusline in Claude Code](./assets/claudecodestatus.png)
-
-Same deal as tmux: one command, pick your segments, apply.
-
-```bash
-openusage statusline install
-```
-
-<p align="center">
-  <img src="./assets/statusline-install.gif" alt="Installing the Claude Code statusline" width="720">
-</p>
-
-Restart Claude Code and it's there.
-
-See the [statusline guide](docs/site/docs/guides/claude-code-statusline.md) for customization and manual setup.
-
-## Track coding agent usage across multiple platforms
-
-Native dashboards show one provider at a time. OpenUsage gives you one local-first view across coding agents, API platforms, and local runtimes so you can answer:
-
-- Which tool or provider is burning budget?
-- Which model caused the spike?
-- Which quota or reset is getting close?
-- Which sessions, projects, or MCP tools drove the change?
-
-It is built for end-user tool tracking, not for instrumenting a separate AI app with tracing SDKs or a billing backend.
-
-If you want the full positioning argument, read the guide: [best way to track coding agent usage and quotas across providers](https://openusage.sh/best-way-track-coding-agent-usage-quotas-across-providers/).
-
-If the question is whether this is the right fit versus a simpler local limits tracker, use:
-
-- [OpenUsage.sh vs OpenUsage.ai](https://openusage.sh/docs/openusage-sh-vs-openusage-ai/)
-- [Capability matrix](https://openusage.sh/docs/capability-matrix/)
-- [Docs hub](https://openusage.sh/docs/)
 
 ## Features
 
-- **Cross-provider tracking** — compare coding agents, API platforms, and local runtimes in one local dashboard
-- **37 providers** — coding agents and CLIs (Claude Code, Codex, Cursor, Copilot, Gemini CLI, Antigravity CLI, OpenCode, Amp, Goose, Roo Code, Kilo Code, Kiro, Zed, and more), API platforms (OpenAI, Anthropic, OpenRouter, Groq, Mistral, DeepSeek, Moonshot, Perplexity, xAI, Z.AI, and more), and local runtimes (Ollama)
-- **Zero config** — auto-detects your AI tools and API keys, just run it
-- **Live dashboard** — see spend, quotas, rate limits, tokens, burn rate, and per-model usage at a glance
-- **tmux integration** — show the active tool's usage in your tmux status bar, with provider icons, presets, and active-tool detection
-- **Claude Code statusline** — one-line session cost, today's cost, burn rate, and context usage in Claude Code
-- **Headless reports** — `daily`, `weekly`, `monthly`, `session`, and `blocks` reports in table or JSON
-- **Background tracking** — a daemon collects data continuously, even when the dashboard is closed, into a local SQLite database you own
-- **Deep cost insights** — model, tool, project, MCP, and session breakdowns; combine providers like OpenCode + OpenRouter
-- **Tool integrations** — optional hooks/status-line bridges for Claude Code, Codex CLI, OpenCode, and Antigravity provide richer, real-time usage data
-- **Export & metrics** — export snapshots to JSON or CSV, look up model pricing, or serve Prometheus metrics from the built-in hub
-- **Customizable** — 17 built-in themes, adjustable time windows, configurable thresholds, provider reordering, plus external theme files
+- **Quota gauges** for the Codex and Claude 5-hour and weekly windows, with
+  reset countdowns. They turn amber at 80% and red at 95%.
+- **Token usage dashboard**: total by model, token type breakdown over time,
+  usage by model over time, and input vs output rate.
+- **Cache inside the totals**: the inner ring and the breakdown card split
+  every total into fresh input, cache read, cache write and output.
+- **Responsive filters**: tap a model or a quota card to filter, tap again or
+  press `Esc` to clear. The filter bar stays visible while you scroll, and
+  the state lives in the URL, so you can bookmark a view.
+- **Synced cursor and drag-to-zoom** across all time charts, and a full-screen
+  view for any chart.
+- **Terminal view** with live per-session state (`Working`, `Needs input`,
+  `Turn done`), tokens, model and last tool.
+- **Private remote access**: a rootless Tailscale node with automatic Serve
+  setup. No open ports, no passwords to manage, no public exposure.
+- **Read-only and local**: the web server listens on loopback, accepts only
+  `GET`, sends strict browser isolation headers and never exposes credentials,
+  prompts or full paths.
 
-## Supported providers
+## How it works
 
-37 provider integrations covering coding agents, CLIs, IDE tools, API platforms, and local runtimes. See [docs/providers.md](docs/providers.md) for all providers with detailed descriptions and screenshots.
+```
+ Codex CLI logs ─┐                        ┌─ terminal view  (agent-monitor)
+ Claude Code logs ┼─► collector (systemd) ─┤
+ quota endpoints ─┘   SQLite + socket      └─ web dashboard  (127.0.0.1:8787)
+                                                   │
+                                     Tailscale Serve (private tailnet)
+                                                   │
+                                               your phone
+```
 
-### Claude Code
+Everything runs as **user** services: no root, no system packages. All
+monitor data lives in `.runtime/` inside the project.
 
-**Detection:** `claude` binary + `~/.claude` directory
+## Requirements
 
-Tracks daily activity, per-model token usage, 5-hour billing block computation, burn rate, and cost estimation.
+- Linux with systemd user services.
+- Go 1.26+ with CGO and a C compiler (`gcc`), for the SQLite store.
+- Python 3, for the Tailscale connector.
+- [Codex CLI](https://github.com/openai/codex) and/or
+  [Claude Code](https://docs.anthropic.com/en/docs/claude-code), signed in
+  with your subscription.
+- A free [Tailscale](https://tailscale.com) account, for phone access.
 
-![Claude Code provider](./assets/claudecode.png)
+## Quick start
 
-### OpenRouter
+```bash
+git clone https://github.com/nxmxl3zz/agent-monitor.git
+cd agent-monitor
+make build
 
-**Detection:** `OPENROUTER_API_KEY` environment variable
+# Optional: put the launcher on your PATH
+mkdir -p ~/.local/bin && ln -s "$PWD/scripts/agent-monitor" ~/.local/bin/agent-monitor
 
-Tracks credits, activity, generation stats, and per-model breakdown across multiple API endpoints.
+agent-monitor service install       # background collector
+agent-monitor web-service install   # web dashboard on 127.0.0.1:8787
+agent-monitor                       # terminal view
+```
 
-![OpenRouter provider](./assets/openrouter.png)
+Open <http://127.0.0.1:8787> on your computer. The first quota reading
+arrives within about a minute.
 
-### All providers
+## Phone access with Tailscale
 
-#### Coding agents & IDEs
+Tailscale puts your computer and your phone on a private network (a
+*tailnet*). Only your signed-in devices can reach the dashboard, over
+WireGuard encryption, from any Wi-Fi or mobile network.
 
-| Provider | Detection | What it tracks |
-|---|---|---|
-| **Claude Code** | `claude` binary + `~/.claude` | Daily activity, per-model tokens, billing blocks, burn rate |
-| **Cursor** | `cursor` binary + local SQLite DBs | Plan spend & limits, per-model aggregation, Composer sessions |
-| **GitHub Copilot** | `gh` CLI + Copilot extension | Chat & completions quota, org billing, session tracking |
-| **Codex CLI** | `codex` binary + `~/.codex` | Session tokens, per-model breakdown, credits, rate limits |
-| **Muse Code** | `muse` binary + `~/.config/muse` + session logs | Session tokens, per-model breakdown, estimated cost |
-| **Gemini CLI** | `gemini` binary + `~/.gemini` | OAuth status, conversation count, per-model tokens |
-| **Antigravity CLI** | `agy` binary + `~/.gemini/antigravity-cli` | Status-line context, session tokens, model quotas |
-| **OpenCode** | `OPENCODE_API_KEY` / `ZEN_API_KEY` | Credits, activity, generation stats |
-| **Ollama** | `OLLAMA_HOST` / binary | Local models, per-model usage |
+### 1. Install the dedicated node on your computer
 
-#### API platforms
+```bash
+agent-monitor remote install
+```
 
-| Provider | Detection | What it tracks |
-|---|---|---|
-| **OpenAI** | `OPENAI_API_KEY` | Rate limits via header probing |
-| **Anthropic** | `ANTHROPIC_API_KEY` | Rate limits via header probing |
-| **Azure OpenAI** | `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` | Rate limits via header probing on the resource endpoint |
-| **OpenRouter** | `OPENROUTER_API_KEY` | Credits, activity, per-model breakdown |
-| **Groq** | `GROQ_API_KEY` | Rate limits, daily usage windows |
-| **Mistral AI** | `MISTRAL_API_KEY` | Subscription, usage endpoints |
-| **DeepSeek** | `DEEPSEEK_API_KEY` | Rate limits, account balance |
-| **Moonshot (Kimi)** | `MOONSHOT_API_KEY` | Balance breakdown (cash + voucher), org limits, tier; supports api.moonshot.ai (default) and api.moonshot.cn |
-| **Perplexity** | Browser session at console.perplexity.ai | Tier, balance, lifetime spend, auto-reload, 30d usage analytics |
-| **OpenCode (Zen + Console)** | `OPENCODE_API_KEY` / `ZEN_API_KEY` + browser session at opencode.ai | Zen models (API key) + balance, monthly limit/usage, subscription, payment method (cookie) |
-| **xAI (Grok)** | `XAI_API_KEY` | Rate limits, API key info |
-| **Z.AI Coding Plan** | `ZAI_API_KEY` / `ZHIPUAI_API_KEY` | Coding plan quotas, model/tool usage, daily trends |
-| **Google Gemini API** | `GEMINI_API_KEY` / `GOOGLE_API_KEY` | Rate limits, model limits |
-| **Alibaba Cloud** | `ALIBABA_CLOUD_API_KEY` | Quotas, credits, per-model tracking |
+This downloads the official static Tailscale build from `pkgs.tailscale.com`,
+verifies its SHA-256 checksum, installs it in `~/.local/lib/agent-monitor/` and
+starts two user services:
+
+- `agent-monitor-tailscale.service`: a rootless Tailscale node named
+  `agent-monitor`.
+- `agent-monitor-remote.service`: a connector that keeps the web service's
+  allowed hosts and Tailscale Serve in sync with that node.
+
+It does not touch an existing system Tailscale install.
+
+### 2. Sign the node in
+
+```bash
+agent-monitor remote login
+```
+
+Open the printed link and approve the device with your Tailscale account.
+
+### 3. Get the address
+
+```bash
+agent-monitor remote status
+```
+
+Once `state` is `ready`, `url` shows the dashboard address, for example
+`http://agent-monitor.tail1234.ts.net`.
+
+### 4. Open it on your phone
+
+1. Install the Tailscale app ([Android](https://play.google.com/store/apps/details?id=com.tailscale.ipn) / [iOS](https://apps.apple.com/app/tailscale/id1470499037)) and sign in with **the same account**.
+2. Turn the VPN toggle on.
+3. Open **`http://agent-monitor`** in the browser. If the short name does not
+   resolve, check that *Use Tailscale DNS* is enabled in the app, or use the
+   full URL from step 3.
+4. Optional: *Add to Home screen* to get an app-like icon.
+
+### 5. Optional: HTTPS and a nicer name
+
+- **HTTPS**: if `remote status` shows `enable_https_url`, open it once to let
+  Tailscale issue a certificate. The connector switches to `https://` on its
+  own.
+- **Readable tailnet name**: the `tail1234.ts.net` suffix is random. In the
+  Tailscale admin console, **DNS → Rename tailnet** lets you pick one of the
+  readable names it suggests. The connector follows the new name
+  automatically.
+
+### Already running Tailscale?
+
+If your computer is already on a tailnet, you can skip the dedicated node and
+publish through the existing install instead:
+
+```bash
+agent-monitor web-service install your-pc.your-tailnet.ts.net
+sudo tailscale serve --bg --https=443 http://127.0.0.1:8787
+```
+
+> [!IMPORTANT]
+> Always use **Serve**, never **Funnel**. Funnel would publish the dashboard to
+> the whole internet, and the server has no login of its own: Tailscale is the
+> authentication.
+
+## Everyday commands
+
+| Command | What it does |
+|---|---|
+| `agent-monitor` | Open the terminal view. |
+| `agent-monitor --json` | Print quotas and sessions as JSON. |
+| `agent-monitor service status\|restart\|stop\|uninstall` | Manage the collector. |
+| `agent-monitor web-service status\|restart\|stop\|uninstall` | Manage the web dashboard. |
+| `agent-monitor remote status\|restart\|stop\|start` | Manage phone access. |
+| `agent-monitor remote uninstall` | Remove the Tailscale node services and binaries. |
+| `agent-monitor tailscale <args>` | Run any Tailscale CLI command against the dedicated node. |
+
+After `make build`, restart the services to load the new binary:
+
+```bash
+systemctl --user restart agent-monitor.service agent-monitor-web.service
+```
+
+### Terminal view keys
+
+`Tab` provider · `↑`/`↓` session · `/` filter · `Esc` clear · `h` period ·
+`t` theme · `r` refresh quotas · `q` quit (the collector keeps running).
 
 ## Configuration
 
-No config file needed — auto-detection handles everything. Override or extend via:
+The launcher copies [`configs/agent-monitor.json`](./configs/agent-monitor.json)
+to `.runtime/config/settings.json` on first run; edit that copy to change the
+theme, refresh interval, retention or dashboard sections. The profile tracks
+only Codex and Claude Code and hides API-equivalent cost estimates, since
+both are flat-rate subscriptions.
 
-- macOS/Linux: `~/.config/openusage/settings.json`
-- Windows: `%APPDATA%\openusage\settings.json`
-
-```json
-{
-  "auto_detect": true,
-  "ui": { "refresh_interval_seconds": 30 },
-  "accounts": [
-    {
-      "id": "openai-personal",
-      "provider": "openai",
-      "api_key_env": "OPENAI_API_KEY",
-      "probe_model": "gpt-4.1-mini"
-    }
-  ]
-}
-```
-
-Full reference: [`configs/example_settings.json`](configs/example_settings.json)
-
-### External themes
-
-You can define custom themes as JSON files loaded at startup from:
-
-- `~/.config/openusage/themes/*.json` (macOS/Linux)
-- `%APPDATA%\\openusage\\themes\\*.json` (Windows)
-- Any extra directory in `OPENUSAGE_THEME_DIR` (path-list separated)
-
-Theme files use the same color token fields as built-ins. Browse the bundled examples for reference shapes — every shipped theme lives at [`internal/tui/bundled_themes/`](internal/tui/bundled_themes/).
-
-## Daemon
-
-Background data collection, even when the dashboard isn't open:
-
-```bash
-openusage telemetry daemon                # Run in foreground
-openusage telemetry daemon install        # Install as system service (launchd / systemd)
-openusage telemetry daemon status         # Check status
-openusage telemetry daemon uninstall      # Uninstall
-```
-
-Installed services snapshot the provider env vars currently set in your shell.
-If you change API key env vars later, rerun `openusage telemetry daemon install`
-to refresh the service environment.
-
-Manage tool integrations:
-
-```bash
-openusage integrations list [--all]       # List integration statuses
-openusage integrations install <id>       # Install hook/plugin
-openusage integrations uninstall <id>     # Remove
-```
-
-## Keybindings
-
-| Key | Action |
+| Path | Contents |
 |---|---|
-| `Tab` | Switch views |
-| `j` / `k`, `Up` / `Down` | Move cursor |
-| `h` / `l`, `Left` / `Right` | Navigate panels |
-| `Enter` / `Esc` | Open detail / back |
-| `PgUp` / `PgDn` | Scroll tile |
-| `[ ]` | Switch detail tabs |
-| `r` | Refresh all |
-| `/` | Filter providers |
-| `t` | Cycle theme |
-| `w` | Cycle time window |
-| `c` | Cycle cost visibility for focused tile (auto → hide → show → auto, persists per-account) |
-| `,` | Open settings |
-| `Shift+J` / `Shift+K` | Reorder providers |
-| `?` | Help |
-| `q` | Quit |
+| `.runtime/config/` | Settings and themes. |
+| `.runtime/state/openusage/` | Usage database, collector socket and state. |
+| `.runtime/remote/status.json` | Tailscale connector status. |
+| `~/.local/state/agent-monitor-tailscale/` | Tailscale node identity (mode 0700). |
 
-## Development
+## Security and privacy
 
-```bash
-make build    # Build binary to ./bin/openusage
-make test     # Run tests with -race and coverage
-make lint     # golangci-lint
-make run      # go run cmd/openusage/main.go
-make demo     # Preview with simulated data (no API keys needed)
-```
+- The web server binds to loopback only and rejects unknown `Host` headers,
+  cross-site requests and every method except `GET`/`HEAD`.
+- Responses carry a strict Content Security Policy (`default-src 'self'`, no
+  inline scripts or styles), `frame-ancestors 'none'` and `no-store` caching.
+  All assets, including the font and the chart library, are embedded in the
+  binary: the page loads nothing from third parties.
+- The dashboard API publishes quotas and aggregated token counts only. The
+  snapshot API adds session metadata with project basenames, never full
+  paths. Neither includes credentials, prompts, responses or tool arguments.
+- Credentials stay with the official clients. The monitor never sends prompts
+  and never stores API keys.
 
-Debug mode: `OPENUSAGE_DEBUG=1 openusage`
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Claude card shows `Rate limited · retrying` | Anthropic throttles the quota endpoint. Readings resume on their own; avoid restarting the collector repeatedly, which drops the cached reading. |
+| A card shows `Sign in required` | Sign in again with the official client (`codex login` or `claude`). |
+| The page says `Offline` | Check `agent-monitor service status`; the page keeps the last reading until the collector is back. |
+| The phone cannot open the dashboard | The Tailscale app must be connected on the phone, and `agent-monitor remote status` must say `ready`. For the short name, enable *Use Tailscale DNS*. |
+| `remote status` shows an `auth_url` | The node needs to be signed in again: run `agent-monitor remote login`. |
+
+## Built on OpenUsage
+
+This project is a fork of [OpenUsage](https://github.com/janekbaraniewski/openusage)
+by Jan Baraniewski, a terminal dashboard for many AI coding tools. Everything
+from OpenUsage still works through `./bin/openusage`; see the
+[upstream README](https://github.com/janekbaraniewski/openusage#readme) and
+[openusage.sh](https://openusage.sh/) for the full provider list and docs.
+
+What this fork adds:
+
+- The `monitor` terminal view and the `web` dashboard (`internal/tui/agent_monitor.go`, `internal/monitorweb/`).
+- Session activity and usage analytics in the collector (`internal/telemetry/session_activity.go`, `internal/telemetry/monitor_analytics.go`).
+- An `OPENUSAGE_CONFIG_DIR` override and a dedicated Codex + Claude profile.
+- Claude OAuth renewal through the official CLI, and rate-limit reporting for the quota endpoint.
+- Launcher and user-service scripts in `scripts/`, including the rootless Tailscale connector.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](./LICENSE), like upstream. The embedded [Apache ECharts](https://echarts.apache.org)
+build is Apache-2.0 and the embedded [Inter](https://rsms.me/inter/) font is
+SIL OFL 1.1; their license files ship next to them in
+`internal/monitorweb/assets/`.
